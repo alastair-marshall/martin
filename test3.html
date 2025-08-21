@@ -1040,7 +1040,6 @@
                     if (selectionEnd < selectionStart) {
                         const t = selectionStart; selectionStart = selectionEnd; selectionEnd = t;
                     }
-                    updateSelectionRegion();
                 }
                 updateSelectionOverlay();
             };
@@ -1067,8 +1066,14 @@
         }
 
         const getSelectionRange = () => {
-            if (selectionStart != null && selectionEnd != null && selectionEnd > selectionStart) {
-                return { start: selectionStart, end: selectionEnd };
+            if (selectionStart != null) {
+                let end = selectionEnd;
+                if (end == null && waveSurfer) {
+                    end = waveSurfer.getDuration();
+                }
+                if (end != null && end > selectionStart) {
+                    return { start: selectionStart, end };
+                }
             }
             return null;
         };
