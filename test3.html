@@ -229,6 +229,9 @@
         #endMarker {
             background: var(--color-secondary-neon);
             box-shadow: 0 0 8px var(--color-secondary-neon);
+            cursor: ew-resize;
+        }
+        #startMarker { cursor: ew-resize; }
         }
         .modal-close-button {
             color: var(--color-primary-neon);
@@ -1106,6 +1109,46 @@
                     endMarker.classList.toggle('hidden', selectionEnd == null);
                 }
             }
+
+            // Dragging markers
+            function attachMarkerDrag(markerEl, which) {
+                if (!markerEl) return;
+                let dragging = false;
+                let startClientX = 0;
+                const onDown = (e) => {
+                    e.preventDefault();
+                    dragging = true;
+                    startClientX = (e.touches?.[0]?.clientX ?? e.clientX);
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('touchmove', onMove, { passive: false });
+                    document.addEventListener('mouseup', onUp, { once: true });
+                    document.addEventListener('touchend', onUp, { once: true });
+                };
+                const onMove = (e) => {
+                    if (!dragging) return;
+                    const clientX = (e.touches?.[0]?.clientX ?? e.clientX);
+                    const rect = wfContainer2.getBoundingClientRect();
+                    const xNorm = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+                    const t = xNorm * (waveSurfer.getDuration() || 0);
+                    if (which === 'start') {
+                        selectionStart = Math.min(t, selectionEnd ?? t);
+                    } else {
+                        selectionEnd = Math.max(t, selectionStart ?? t);
+                    }
+                    updateSelectionOverlay();
+                    e.preventDefault();
+                };
+                const onUp = () => {
+                    dragging = false;
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('touchmove', onMove);
+                };
+                markerEl.addEventListener('mousedown', onDown);
+                markerEl.addEventListener('touchstart', onDown, { passive: false });
+            }
+
+            attachMarkerDrag(document.getElementById('startMarker'), 'start');
+            attachMarkerDrag(document.getElementById('endMarker'), 'end');
 
             editorModal.style.display = 'flex';
         }
