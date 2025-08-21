@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,100 +9,137 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <script src="https://unpkg.com/wavesurfer.js@7.7.12/dist/wavesurfer.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap"
+        rel="stylesheet">
     <style>
         :root {
-            --color-background: #0a0a0f; /* Very dark blue/black */
-            --color-primary-neon: #00ffcc; /* Bright neon cyan/green */
-            --color-secondary-neon: #9400d3; /* Dark Violet for accents */
-            --color-text: #e0e0e0; /* Light gray for general text */
-            --color-text-muted: #7a7a8c; /* Muted gray for less important text */
-            --color-border: #2a2a3a; /* Dark border for elements */
-            --color-surface: #12121c; /* Slightly lighter dark for surfaces */
-            --font-primary: 'Orbitron', sans-serif; /* Futuristic font */
-            --font-secondary: 'Roboto', sans-serif; /* Readable font for body */
+            --color-background: #0a0a0f;
+            /* Very dark blue/black */
+            --color-primary-neon: #00ffcc;
+            /* Bright neon cyan/green */
+            --color-secondary-neon: #9400d3;
+            /* Dark Violet for accents */
+            --color-text: #e0e0e0;
+            /* Light gray for general text */
+            --color-text-muted: #7a7a8c;
+            /* Muted gray for less important text */
+            --color-border: #2a2a3a;
+            /* Dark border for elements */
+            --color-surface: #12121c;
+            /* Slightly lighter dark for surfaces */
+            --font-primary: 'Orbitron', sans-serif;
+            /* Futuristic font */
+            --font-secondary: 'Roboto', sans-serif;
+            /* Readable font for body */
         }
+
         body {
             font-family: var(--font-secondary);
             background-color: var(--color-background);
             color: var(--color-text);
             line-height: 1.6;
         }
+
         .container {
             background-color: var(--color-surface);
             border: 1px solid var(--color-primary-neon);
             box-shadow: 0 0 15px var(--color-primary-neon), 0 0 30px var(--color-primary-neon) inset;
         }
-        h1, h2, h3 {
+
+        h1,
+        h2,
+        h3 {
             font-family: var(--font-primary);
             color: var(--color-primary-neon);
             text-shadow: 0 0 5px var(--color-primary-neon);
         }
+
         h1 {
             letter-spacing: 2px;
         }
-        button, input[type="number"] {
+
+        button,
+        input[type="number"] {
             font-family: var(--font-primary);
             background-color: transparent;
             color: var(--color-primary-neon);
             border: 1px solid var(--color-primary-neon);
-            border-radius: 0.25rem; /* rounded-sm for sharper edges */
+            border-radius: 0.25rem;
+            /* rounded-sm for sharper edges */
             padding: 0.5rem 1rem;
             transition: all 0.3s ease;
             box-shadow: 0 0 5px var(--color-primary-neon);
             outline: none;
         }
-        button:hover, input[type="number"]:hover {
+
+        button:hover,
+        input[type="number"]:hover {
             background-color: var(--color-primary-neon);
             color: var(--color-background);
             box-shadow: 0 0 10px var(--color-primary-neon), 0 0 15px var(--color-primary-neon);
         }
+
         button:disabled {
             border-color: var(--color-text-muted);
             color: var(--color-text-muted);
             box-shadow: none;
             cursor: not-allowed;
         }
+
         button:disabled:hover {
             background-color: transparent;
             color: var(--color-text-muted);
         }
+
         input[type="number"] {
-            background-color: var(--color-background); /* Darker input background */
+            background-color: var(--color-background);
+            /* Darker input background */
             padding: 0.5rem;
             width: 100%;
         }
+
         input[type="number"]:focus {
             border-color: var(--color-secondary-neon);
             box-shadow: 0 0 8px var(--color-secondary-neon);
         }
+
         label {
             color: var(--color-primary-neon);
             font-family: var(--font-primary);
         }
+
         .sequencer-step {
-            width: 38px; /* Adjusted for new style */
+            width: 38px;
+            /* Adjusted for new style */
             height: 38px;
             border: 1px solid var(--color-border);
-            margin: 1px; /* Reduced margin */
+            margin: 1px;
+            /* Reduced margin */
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 2px; /* Sharper corners */
+            border-radius: 2px;
+            /* Sharper corners */
             transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
-            background-color: rgba(0, 255, 204, 0.05); /* Faint neon tint */
+            background-color: rgba(0, 255, 204, 0.05);
+            /* Faint neon tint */
         }
+
         .sequencer-step:hover {
             border-color: var(--color-primary-neon);
             box-shadow: 0 0 5px var(--color-primary-neon) inset;
         }
+
         .sequencer-step.active {
             background-color: var(--color-primary-neon);
             box-shadow: 0 0 8px var(--color-primary-neon);
             border-color: var(--color-primary-neon);
         }
-        .sequencer-step.active::before { /* Inner glow effect for active steps */
+
+        .sequencer-step.active::before {
+            /* Inner glow effect for active steps */
             content: '';
             display: block;
             width: 50%;
@@ -110,56 +148,71 @@
             opacity: 0.7;
             border-radius: 1px;
         }
+
         .sequencer-step.playing {
             background-color: var(--color-secondary-neon);
             border-color: var(--color-secondary-neon);
             box-shadow: 0 0 10px var(--color-secondary-neon), 0 0 5px var(--color-secondary-neon) inset;
         }
+
         .sequencer-step.playing::before {
-             background-color: var(--color-primary-neon);
-             opacity: 0.8;
+            background-color: var(--color-primary-neon);
+            opacity: 0.8;
         }
+
         .track-header {
             min-width: 160px;
-            background-color: rgba(148, 0, 211, 0.1); /* Faint secondary neon */
+            background-color: rgba(148, 0, 211, 0.1);
+            /* Faint secondary neon */
             border-right: 1px solid var(--color-secondary-neon) !important;
         }
+
         #sequencerGrid table {
             border: 1px solid var(--color-border);
         }
-        #sequencerGrid th, #sequencerGrid td {
-             border: 1px solid var(--color-border);
+
+        #sequencerGrid th,
+        #sequencerGrid td {
+            border: 1px solid var(--color-border);
         }
+
         #sequencerGrid th {
             color: var(--color-text-muted);
             font-family: var(--font-secondary);
             font-weight: 300;
             background-color: var(--color-background);
-         }
+        }
+
         .sample-item {
             cursor: pointer;
             border: 1px solid var(--color-border);
             background-color: rgba(0, 255, 204, 0.05);
             transition: background-color 0.3s, border-color 0.3s;
         }
+
         .sample-item:hover {
             background-color: rgba(0, 255, 204, 0.15);
             border-color: var(--color-primary-neon);
         }
+
         .sample-item span {
             color: var(--color-text);
         }
+
         .sample-item button svg {
             color: var(--color-primary-neon);
             transition: transform 0.2s;
         }
+
         .sample-item button:hover svg {
             transform: scale(1.2);
             filter: drop-shadow(0 0 3px var(--color-primary-neon));
         }
+
         /* Custom modal styles */
         .modal {
-            display: none; /* Hidden by default */
+            display: none;
+            /* Hidden by default */
             position: fixed;
             z-index: 1000;
             left: 0;
@@ -167,10 +220,12 @@
             width: 100%;
             height: 100%;
             overflow: auto;
-            background-color: rgba(10, 10, 15, 0.85); /* Darker, more opaque backdrop */
+            background-color: rgba(10, 10, 15, 0.85);
+            /* Darker, more opaque backdrop */
             align-items: center;
             justify-content: center;
         }
+
         .modal-content {
             background-color: var(--color-surface);
             margin: auto;
@@ -178,61 +233,70 @@
             border: 1px solid var(--color-primary-neon);
             width: 90%;
             max-width: 550px;
-            border-radius: 4px; /* Sharper */
+            border-radius: 4px;
+            /* Sharper */
             box-shadow: 0 0 20px var(--color-primary-neon), 0 0 10px var(--color-secondary-neon) inset;
             color: var(--color-text);
         }
+
         /* Waveform editor styles */
         #waveformContainer {
             height: 120px;
             border: 1px solid var(--color-border);
-            background: rgba(0,0,0,0.3);
+            background: rgba(0, 0, 0, 0.3);
             box-shadow: 0 0 10px var(--color-primary-neon) inset;
+            overflow-x: auto;
         }
+
         #editorModal .modal-content {
             border-color: var(--color-secondary-neon);
             box-shadow: 0 0 20px var(--color-secondary-neon), 0 0 10px var(--color-primary-neon) inset;
         }
+
         #waveformTimeline {
             height: 20px;
         }
+
         #selectionOverlay {
             position: absolute;
             top: 0;
             bottom: 0;
             left: 0;
             width: 0;
-            background: repeating-linear-gradient(
-                135deg,
-                rgba(0,255,204,0.18) 0px,
-                rgba(0,255,204,0.18) 6px,
-                rgba(148,0,211,0.18) 6px,
-                rgba(148,0,211,0.18) 12px
-            );
+            background: repeating-linear-gradient(135deg,
+                    rgba(0, 255, 204, 0.18) 0px,
+                    rgba(0, 255, 204, 0.18) 6px,
+                    rgba(148, 0, 211, 0.18) 6px,
+                    rgba(148, 0, 211, 0.18) 12px);
             border-left: 2px solid var(--color-primary-neon);
             border-right: 2px solid var(--color-secondary-neon);
             box-shadow: 0 0 10px var(--color-primary-neon), inset 0 0 10px var(--color-secondary-neon);
             pointer-events: none;
-            z-index: 10;
+            z-index: 9998;
         }
-        #startMarker, #endMarker {
+
+        #startMarker,
+        #endMarker {
             position: absolute;
             top: 0;
             bottom: 0;
             width: 2px;
             background: var(--color-primary-neon);
             box-shadow: 0 0 8px var(--color-primary-neon);
-            pointer-events: none;
-            z-index: 11;
+            z-index: 9999;
             opacity: 0.9;
         }
+
         #endMarker {
             background: var(--color-secondary-neon);
             box-shadow: 0 0 8px var(--color-secondary-neon);
             cursor: ew-resize;
         }
-        #startMarker { cursor: ew-resize; }
+
+        #startMarker {
+            cursor: ew-resize;
         }
+
         .modal-close-button {
             color: var(--color-primary-neon);
             float: right;
@@ -241,16 +305,21 @@
             cursor: pointer;
             transition: color 0.2s, text-shadow 0.2s;
         }
+
         .modal-close-button:hover,
         .modal-close-button:focus {
-            color: #fff; /* Brighter on hover */
+            color: #fff;
+            /* Brighter on hover */
             text-shadow: 0 0 8px var(--color-primary-neon);
             text-decoration: none;
         }
-        #modalSampleList .p-2:hover { /* For sample items in modal */
-             background-color: rgba(0, 255, 204, 0.2);
-             border-color: var(--color-primary-neon);
+
+        #modalSampleList .p-2:hover {
+            /* For sample items in modal */
+            background-color: rgba(0, 255, 204, 0.2);
+            border-color: var(--color-primary-neon);
         }
+
         /* Loading indicator */
         .loader {
             border: 3px solid var(--color-border);
@@ -260,73 +329,101 @@
             height: 20px;
             animation: spin 0.8s linear infinite;
             margin-right: 8px;
-            display: inline-block; /* Ensure it aligns well with text */
+            display: inline-block;
+            /* Ensure it aligns well with text */
         }
+
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
+
         /* Message Area */
         #messageArea {
             font-family: var(--font-primary);
             border: 1px solid;
             box-shadow: 0 0 10px;
         }
-        #messageArea.bg-red-500 { /* Tailwind override */
-            background-color: rgba(255, 0, 0, 0.7) !important; /* More cyberpunk red */
+
+        #messageArea.bg-red-500 {
+            /* Tailwind override */
+            background-color: rgba(255, 0, 0, 0.7) !important;
+            /* More cyberpunk red */
             border-color: #ff0000;
             color: #fff;
             text-shadow: 0 0 5px #ff0000;
             box-shadow: 0 0 10px #ff0000;
         }
-        #messageArea.bg-green-500 { /* Tailwind override */
-            background-color: rgba(0, 255, 0, 0.7) !important; /* More cyberpunk green */
+
+        #messageArea.bg-green-500 {
+            /* Tailwind override */
+            background-color: rgba(0, 255, 0, 0.7) !important;
+            /* More cyberpunk green */
             border-color: #00ff00;
             color: var(--color-background);
             text-shadow: 0 0 5px #00ff00;
             box-shadow: 0 0 10px #00ff00;
         }
-        #messageArea.bg-blue-500 { /* Tailwind override for info */
-            background-color: rgba(0, 100, 255, 0.7) !important; /* Cyberpunk info blue */
+
+        #messageArea.bg-blue-500 {
+            /* Tailwind override for info */
+            background-color: rgba(0, 100, 255, 0.7) !important;
+            /* Cyberpunk info blue */
             border-color: #0064ff;
             color: #fff;
             text-shadow: 0 0 5px #0064ff;
             box-shadow: 0 0 10px #0064ff;
         }
+
         /* Specific button styling for cyberpunk theme */
         #startRecordButton {
-            border-color: #00ff00; /* Neon Green */
+            border-color: #00ff00;
+            /* Neon Green */
             color: #00ff00;
             box-shadow: 0 0 5px #00ff00;
         }
+
         #startRecordButton:hover:not(:disabled) {
             background-color: #00ff00;
             color: var(--color-background);
             box-shadow: 0 0 10px #00ff00, 0 0 15px #00ff00;
         }
+
         #stopRecordButton {
-            border-color: #ff0000; /* Neon Red */
+            border-color: #ff0000;
+            /* Neon Red */
             color: #ff0000;
             box-shadow: 0 0 5px #ff0000;
         }
+
         #stopRecordButton:hover:not(:disabled) {
             background-color: #ff0000;
             color: var(--color-background);
             box-shadow: 0 0 10px #ff0000, 0 0 15px #ff0000;
         }
+
         #playSequencerButton {
             border-color: var(--color-primary-neon);
         }
+
         #stopSequencerButton {
-            border-color: #ff8c00; /* Dark Orange / Amber */
+            border-color: #ff8c00;
+            /* Dark Orange / Amber */
             color: #ff8c00;
             box-shadow: 0 0 5px #ff8c00;
         }
+
         #stopSequencerButton:hover:not(:disabled) {
             background-color: #ff8c00;
             color: var(--color-background);
             box-shadow: 0 0 10px #ff8c00, 0 0 15px #ff8c00;
         }
+
         /* Initial Audio Button */
         #startAudioContextButton {
             font-family: var(--font-primary);
@@ -334,32 +431,43 @@
             color: var(--color-text);
             border: 1px solid var(--color-primary-neon);
             box-shadow: 0 0 10px var(--color-secondary-neon), 0 0 20px var(--color-primary-neon);
-            z-index: 2000; /* Ensure it's on top */
+            z-index: 2000;
+            /* Ensure it's on top */
         }
+
         #startAudioContextButton:hover {
             background-color: var(--color-primary-neon);
             color: var(--color-background);
             box-shadow: 0 0 15px var(--color-primary-neon), 0 0 30px var(--color-primary-neon);
         }
+
         /* Tailwind class overrides for sections */
         .section-bg {
-            background-color: rgba(18, 18, 28, 0.7); /* var(--color-surface) with more transparency */
+            background-color: rgba(18, 18, 28, 0.7);
+            /* var(--color-surface) with more transparency */
             border: 1px solid var(--color-border);
             box-shadow: 0 0 8px rgba(0, 255, 204, 0.3) inset;
         }
+
         .text-muted-cyber {
             color: var(--color-text-muted);
             font-family: var(--font-secondary);
         }
+
         /* Ensure recording status paragraph takes up space to help with alignment */
         #recordingStatus {
-            min-height: 1.25rem; /* Equivalent to text-sm line height, adjust if needed */
-            display: flex; /* For aligning loader and text */
-            align-items: center; /* For aligning loader and text */
-            justify-content: center; /* For aligning loader and text */
+            min-height: 1.25rem;
+            /* Equivalent to text-sm line height, adjust if needed */
+            display: flex;
+            /* For aligning loader and text */
+            align-items: center;
+            /* For aligning loader and text */
+            justify-content: center;
+            /* For aligning loader and text */
         }
     </style>
 </head>
+
 <body class="p-4 md:p-8">
     <div class="container mx-auto max-w-5xl p-6 rounded-lg">
         <header class="mb-8 text-center">
@@ -372,15 +480,20 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-stretch">
                 <div class="flex flex-col space-y-3">
                     <button id="startRecordButton" class="py-2 px-4 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6V7.5a6 6 0 0 0-12 0v5.25a6 6 0 0 0 6 6Z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-5 h-5 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M12 18.75a6 6 0 0 0 6-6V7.5a6 6 0 0 0-12 0v5.25a6 6 0 0 0 6 6Z" />
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M19.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
                         </svg>
                         INITIATE CAPTURE
                     </button>
                     <button id="stopRecordButton" class="py-2 px-4 flex items-center justify-center" disabled>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-5 h-5 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
                         </svg>
                         TERMINATE CAPTURE
                     </button>
@@ -389,14 +502,18 @@
 
                 <div class="flex flex-col space-y-3">
                     <button id="playSequencerButton" class="py-2 px-4 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-5 h-5 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
                         </svg>
                         ACTIVATE SEQUENCE
                     </button>
                     <button id="stopSequencerButton" class="py-2 px-4 flex items-center justify-center" disabled>
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                            stroke="currentColor" class="w-5 h-5 mr-2">
+                            <path stroke-linecap="round" stroke-linejoin="round"
+                                d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
                         </svg>
                         DEACTIVATE SEQUENCE
                     </button>
@@ -404,15 +521,18 @@
                 </div>
 
                 <div class="flex flex-col space-y-3">
-                     <div>
+                    <div>
                         <label for="tempo" class="block text-sm font-medium">CHRONOSYNC (BPM):</label>
-                        <input type="number" id="tempo" value="120" min="40" max="240" class="mt-1 block w-full px-3 py-2 shadow-sm sm:text-sm">
+                        <input type="number" id="tempo" value="120" min="40" max="240"
+                            class="mt-1 block w-full px-3 py-2 shadow-sm sm:text-sm">
                     </div>
                     <div>
                         <label for="micSelect" class="block text-sm font-medium">INPUT DEVICE:</label>
                         <div class="flex gap-2 items-center mt-1">
-                            <select id="micSelect" class="mt-1 block w-full px-3 py-2 bg-black/40 shadow-sm sm:text-sm"></select>
-                            <button id="refreshDevicesButton" class="py-2 px-3 text-xs" title="Refresh input devices">REFRESH</button>
+                            <select id="micSelect"
+                                class="mt-1 block w-full px-3 py-2 bg-black/40 shadow-sm sm:text-sm"></select>
+                            <button id="refreshDevicesButton" class="py-2 px-3 text-xs"
+                                title="Refresh input devices">REFRESH</button>
                         </div>
                         <p id="permissionStatus" class="text-xs text-muted-cyber mt-1"></p>
                     </div>
@@ -425,10 +545,11 @@
             <section id="sampleLibrary" class="md:col-span-1 p-4 rounded-lg section-bg">
                 <h2 class="text-xl font-semibold mb-4">SAMPLE BAY</h2>
                 <div id="sampleList" class="space-y-2 max-h-96 overflow-y-auto pr-2">
-                     <p class="text-muted-cyber p-2">No samples acquired. Initiate capture protocol.</p>
+                    <p class="text-muted-cyber p-2">No samples acquired. Initiate capture protocol.</p>
                 </div>
                 <div class="mt-4 flex gap-2">
-                    <button id="exportStemsButton" class="py-2 px-3 text-xs" title="Export active pattern as individual stems">EXPORT STEMS</button>
+                    <button id="exportStemsButton" class="py-2 px-3 text-xs"
+                        title="Export active pattern as individual stems">EXPORT STEMS</button>
                     <a id="exportDownloadLink" class="hidden"></a>
                 </div>
             </section>
@@ -436,7 +557,7 @@
             <section id="sequencer" class="md:col-span-2 p-4 rounded-lg section-bg">
                 <h2 class="text-xl font-semibold mb-3">PATTERN GRID</h2>
                 <div id="sequencerGrid" class="overflow-x-auto">
-                    </div>
+                </div>
             </section>
         </div>
     </div>
@@ -446,7 +567,7 @@
             <span class="modal-close-button" id="closeModalButton">&times;</span>
             <h3 class="text-xl font-medium mb-4">LOAD SAMPLE</h3>
             <div id="modalSampleList" class="space-y-2 max-h-60 overflow-y-auto pr-2">
-                </div>
+            </div>
             <p id="modalNoSamples" class="text-muted-cyber hidden">Sample bay empty.</p>
         </div>
     </div>
@@ -474,7 +595,7 @@
     </div>
 
     <div id="messageArea" class="fixed bottom-4 right-4 p-4 rounded-md shadow-md hidden animate-pulse text-sm">
-        </div>
+    </div>
 
     <script>
         // --- CONFIGURATION ---
@@ -779,7 +900,7 @@
         async function playSamplePreview(sample) {
             try {
                 if (Tone.context.state !== 'running') {
-                    try { await Tone.start(); } catch (_) {}
+                    try { await Tone.start(); } catch (_) { }
                 }
                 // If a trim range exists, play only that region
                 if (sample.trim && sample.trim.end > sample.trim.start && sample.player && sample.player.loaded) {
@@ -913,14 +1034,14 @@
                         newPlayer._sourceIndex = typeof sampleIndex === 'number' ? sampleIndex : -1;
                         // Dispose any previous assignment to free resources
                         if (trackPlayers[currentTrackToLoad]) {
-                            try { trackPlayers[currentTrackToLoad].dispose(); } catch (_) {}
+                            try { trackPlayers[currentTrackToLoad].dispose(); } catch (_) { }
                         }
                         trackPlayers[currentTrackToLoad] = newPlayer;
                         const sampleNameEl = document.getElementById(`track-${currentTrackToLoad}-sample-name`);
                         sampleNameEl.textContent = sample.name;
                         sampleNameEl.classList.remove('text-muted-cyber');
                         console.log(`Sample "${sample.name}" assigned to Track ${currentTrackToLoad + 1}`);
-                        showMessage(`ASSIGNED: "${sample.name}" TO CHANNEL ${String(currentTrackToLoad + 1).padStart(2,'0')}`, "success");
+                        showMessage(`ASSIGNED: "${sample.name}" TO CHANNEL ${String(currentTrackToLoad + 1).padStart(2, '0')}`, "success");
                     } catch (e) {
                         showMessage(`Assignment failed: ${e.message}`, "error", 5000);
                     }
@@ -980,6 +1101,8 @@
         let selectionEnd = null;
         let containerClickHandler = null;
         let currentEditIndex = -1;
+        let isMarkerDragging = false;
+        let suppressClick = false;
         const editorModal = document.getElementById('editorModal');
         const editorCloseButton = document.getElementById('editorCloseButton');
         const editorSampleName = document.getElementById('editorSampleName');
@@ -988,7 +1111,7 @@
         const trimInfo = document.getElementById('trimInfo');
 
         function closeEditor() {
-            try { waveSurfer && waveSurfer.destroy(); } catch (_) {}
+            try { waveSurfer && waveSurfer.destroy(); } catch (_) { }
             waveSurfer = null;
             editorModal.style.display = 'none';
             currentEditIndex = -1;
@@ -1012,11 +1135,42 @@
             currentEditIndex = index;
             editorSampleName.textContent = sample.name;
             const wfContainer = document.getElementById('waveformContainer');
-            wfContainer.innerHTML = '';
-            try { waveSurfer && waveSurfer.destroy(); } catch (_) {}
+            try { waveSurfer && waveSurfer.destroy(); } catch (_) { }
+
+            // Ensure overlay and markers exist (in case they were removed previously)
+            let overlay = document.getElementById('selectionOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'selectionOverlay';
+                wfContainer.appendChild(overlay);
+            }
+            let startMarkerEl = document.getElementById('startMarker');
+            if (!startMarkerEl) {
+                startMarkerEl = document.createElement('div');
+                startMarkerEl.id = 'startMarker';
+                startMarkerEl.classList.add('hidden');
+                wfContainer.appendChild(startMarkerEl);
+            }
+            let endMarkerEl = document.getElementById('endMarker');
+            if (!endMarkerEl) {
+                endMarkerEl = document.createElement('div');
+                endMarkerEl.id = 'endMarker';
+                endMarkerEl.classList.add('hidden');
+                wfContainer.appendChild(endMarkerEl);
+            }
+
+            // Remove any prior waveform canvas
+            const existingWave = document.getElementById('waveformCanvas');
+            if (existingWave && existingWave.parentNode) existingWave.parentNode.removeChild(existingWave);
+
+            // Create fresh canvas for WaveSurfer below overlay/markers
+            const waveTarget = document.createElement('div');
+            waveTarget.id = 'waveformCanvas';
+            wfContainer.insertBefore(waveTarget, overlay);
+
             try {
                 waveSurfer = WaveSurfer.create({
-                    container: wfContainer,
+                    container: waveTarget,
                     waveColor: 'rgba(0,255,204,0.35)',
                     progressColor: 'rgba(148,0,211,0.7)',
                     cursorColor: '#00ffcc',
@@ -1038,6 +1192,11 @@
                 waveSurfer.load(sample.url);
             }
 
+            const resyncOverlay = () => {
+                if (!waveSurfer) return;
+                updateSelectionOverlay();
+            };
+
             waveSurfer.on('ready', () => {
                 trimInfo.textContent = 'Click once to set START, again to set END.';
                 // Preload existing trim as selection
@@ -1046,6 +1205,9 @@
                     selectionEnd = sample.trim.end;
                     updateSelectionOverlay();
                 }
+                // Keep overlay in sync when container scrolls or window resizes
+                wfContainer.addEventListener('scroll', resyncOverlay, { passive: true });
+                window.addEventListener('resize', resyncOverlay);
             });
 
             waveSurfer.on('error', (e) => {
@@ -1061,11 +1223,22 @@
 
             // Click-to-select (two clicks)
             const wfContainer2 = document.getElementById('waveformContainer');
+            const canvasEl = document.getElementById('waveformCanvas');
+            const timeFromClientX = (clientX) => {
+                const rect = wfContainer2.getBoundingClientRect();
+                const scrollX = wfContainer2.scrollLeft || 0;
+                const xWithin = Math.min(Math.max((clientX - rect.left), 0), rect.width);
+                const xTotal = xWithin + scrollX;
+                const totalWidth = canvasEl ? canvasEl.scrollWidth || rect.width : rect.width;
+                const dur = waveSurfer.getDuration() || 0;
+                if (dur === 0 || totalWidth === 0) return 0;
+                const t = (xTotal / totalWidth) * dur;
+                return Math.min(Math.max(t, 0), dur);
+            };
             const handleClick = (e) => {
                 if (!waveSurfer) return;
-                const rect = wfContainer2.getBoundingClientRect();
-                const x = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
-                const time = x * waveSurfer.getDuration();
+                if (suppressClick) { suppressClick = false; return; }
+                const time = timeFromClientX(e.clientX);
                 if (selectionStart === null) {
                     selectionStart = time;
                     selectionEnd = null;
@@ -1088,10 +1261,12 @@
                 const dur = waveSurfer.getDuration() || 0;
                 if (!overlay || dur === 0 || selectionStart === null) return;
                 const rect = wfContainer2.getBoundingClientRect();
-                const startX = (selectionStart / dur) * rect.width;
+                const scrollX = wfContainer2.scrollLeft || 0;
+                const totalWidth = canvasEl ? canvasEl.scrollWidth || rect.width : rect.width;
+                const startX = (selectionStart / dur) * totalWidth - scrollX;
                 let width = 0;
                 if (selectionEnd !== null) {
-                    const endX = (selectionEnd / dur) * rect.width;
+                    const endX = (selectionEnd / dur) * totalWidth - scrollX;
                     width = Math.max(0, endX - startX);
                 }
                 overlay.style.left = `${startX}px`;
@@ -1104,7 +1279,7 @@
                     startMarker.classList.remove('hidden');
                 }
                 if (endMarker) {
-                    const endX = (selectionEnd != null ? selectionEnd : dur) / dur * rect.width;
+                    const endX = ((selectionEnd != null ? selectionEnd : dur) / dur) * totalWidth - scrollX;
                     endMarker.style.left = `${endX - 1}px`;
                     endMarker.classList.toggle('hidden', selectionEnd == null);
                 }
@@ -1114,22 +1289,21 @@
             function attachMarkerDrag(markerEl, which) {
                 if (!markerEl) return;
                 let dragging = false;
-                let startClientX = 0;
                 const onDown = (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     dragging = true;
-                    startClientX = (e.touches?.[0]?.clientX ?? e.clientX);
+                    isMarkerDragging = true;
+                    suppressClick = true;
                     document.addEventListener('mousemove', onMove);
                     document.addEventListener('touchmove', onMove, { passive: false });
                     document.addEventListener('mouseup', onUp, { once: true });
                     document.addEventListener('touchend', onUp, { once: true });
                 };
                 const onMove = (e) => {
-                    if (!dragging) return;
+                    if (!dragging || !waveSurfer) return;
                     const clientX = (e.touches?.[0]?.clientX ?? e.clientX);
-                    const rect = wfContainer2.getBoundingClientRect();
-                    const xNorm = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
-                    const t = xNorm * (waveSurfer.getDuration() || 0);
+                    const t = timeFromClientX(clientX);
                     if (which === 'start') {
                         selectionStart = Math.min(t, selectionEnd ?? t);
                     } else {
@@ -1142,6 +1316,10 @@
                     dragging = false;
                     document.removeEventListener('mousemove', onMove);
                     document.removeEventListener('touchmove', onMove);
+                    setTimeout(() => {
+                        isMarkerDragging = false;
+                        suppressClick = false;
+                    }, 0);
                 };
                 markerEl.addEventListener('mousedown', onDown);
                 markerEl.addEventListener('touchstart', onDown, { passive: false });
@@ -1210,11 +1388,18 @@
             closeEditor();
         });
 
-        trimResetButton.addEventListener('click', () => {
+        trimResetButton.addEventListener('click', async () => {
             if (currentEditIndex < 0) return;
             const sample = recordedSamples[currentEditIndex];
             sample.trim = null;
-            // No need to rebuild buffer; we still have original arrayBuffer
+            // Rebuild player's buffer back to original for accurate preview
+            try {
+                const audioCtx = Tone.getContext().rawContext;
+                const originalBuffer = await audioCtx.decodeAudioData(sample.arrayBuffer.slice(0));
+                const newPlayer = new Tone.Player(originalBuffer).toDestination();
+                sample.player.dispose();
+                sample.player = newPlayer;
+            } catch (_) { }
             // Update any assigned track players that use this sample source
             for (let t = 0; t < trackPlayers.length; t++) {
                 const tp = trackPlayers[t];
@@ -1509,4 +1694,5 @@
         };
     </script>
 </body>
+
 </html>
