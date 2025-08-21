@@ -202,8 +202,33 @@
             bottom: 0;
             left: 0;
             width: 0;
-            background: rgba(0,255,204,0.15);
+            background: repeating-linear-gradient(
+                135deg,
+                rgba(0,255,204,0.18) 0px,
+                rgba(0,255,204,0.18) 6px,
+                rgba(148,0,211,0.18) 6px,
+                rgba(148,0,211,0.18) 12px
+            );
+            border-left: 2px solid var(--color-primary-neon);
+            border-right: 2px solid var(--color-secondary-neon);
+            box-shadow: 0 0 10px var(--color-primary-neon), inset 0 0 10px var(--color-secondary-neon);
             pointer-events: none;
+            z-index: 10;
+        }
+        #startMarker, #endMarker {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--color-primary-neon);
+            box-shadow: 0 0 8px var(--color-primary-neon);
+            pointer-events: none;
+            z-index: 11;
+            opacity: 0.9;
+        }
+        #endMarker {
+            background: var(--color-secondary-neon);
+            box-shadow: 0 0 8px var(--color-secondary-neon);
         }
         .modal-close-button {
             color: var(--color-primary-neon);
@@ -430,7 +455,11 @@
                 <span class="modal-close-button" id="editorCloseButton">&times;</span>
             </div>
             <p id="editorSampleName" class="text-sm text-muted-cyber mb-3"></p>
-            <div id="waveformContainer" class="rounded-sm relative"><div id="selectionOverlay"></div></div>
+            <div id="waveformContainer" class="rounded-sm relative">
+                <div id="selectionOverlay"></div>
+                <div id="startMarker" class="hidden"></div>
+                <div id="endMarker" class="hidden"></div>
+            </div>
             <div class="flex items-center gap-2 mt-3">
                 <button id="trimApplyButton" class="py-1 px-3 text-xs">APPLY TRIM</button>
                 <button id="trimResetButton" class="py-1 px-3 text-xs">RESET</button>
@@ -746,6 +775,9 @@
 
         async function playSamplePreview(sample) {
             try {
+                if (Tone.context.state !== 'running') {
+                    try { await Tone.start(); } catch (_) {}
+                }
                 // If a trim range exists, play only that region
                 if (sample.trim && sample.trim.end > sample.trim.start && sample.player && sample.player.loaded) {
                     sample.player.start(undefined, sample.trim.start, sample.trim.end - sample.trim.start);
@@ -1048,6 +1080,8 @@
 
             function updateSelectionOverlay() {
                 const overlay = document.getElementById('selectionOverlay');
+                const startMarker = document.getElementById('startMarker');
+                const endMarker = document.getElementById('endMarker');
                 const dur = waveSurfer.getDuration() || 0;
                 if (!overlay || dur === 0 || selectionStart === null) return;
                 const rect = wfContainer2.getBoundingClientRect();
@@ -1060,6 +1094,17 @@
                 overlay.style.left = `${startX}px`;
                 overlay.style.width = `${width}px`;
                 updateInfo();
+
+                // Markers
+                if (startMarker) {
+                    startMarker.style.left = `${startX - 1}px`;
+                    startMarker.classList.remove('hidden');
+                }
+                if (endMarker) {
+                    const endX = (selectionEnd != null ? selectionEnd : dur) / dur * rect.width;
+                    endMarker.style.left = `${endX - 1}px`;
+                    endMarker.classList.toggle('hidden', selectionEnd == null);
+                }
             }
 
             editorModal.style.display = 'flex';
