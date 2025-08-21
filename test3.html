@@ -1,0 +1,1419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyberpunk Alien Mic Sequencer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7.7.12/dist/wavesurfer.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --color-background: #0a0a0f; /* Very dark blue/black */
+            --color-primary-neon: #00ffcc; /* Bright neon cyan/green */
+            --color-secondary-neon: #9400d3; /* Dark Violet for accents */
+            --color-text: #e0e0e0; /* Light gray for general text */
+            --color-text-muted: #7a7a8c; /* Muted gray for less important text */
+            --color-border: #2a2a3a; /* Dark border for elements */
+            --color-surface: #12121c; /* Slightly lighter dark for surfaces */
+            --font-primary: 'Orbitron', sans-serif; /* Futuristic font */
+            --font-secondary: 'Roboto', sans-serif; /* Readable font for body */
+        }
+        body {
+            font-family: var(--font-secondary);
+            background-color: var(--color-background);
+            color: var(--color-text);
+            line-height: 1.6;
+        }
+        .container {
+            background-color: var(--color-surface);
+            border: 1px solid var(--color-primary-neon);
+            box-shadow: 0 0 15px var(--color-primary-neon), 0 0 30px var(--color-primary-neon) inset;
+        }
+        h1, h2, h3 {
+            font-family: var(--font-primary);
+            color: var(--color-primary-neon);
+            text-shadow: 0 0 5px var(--color-primary-neon);
+        }
+        h1 {
+            letter-spacing: 2px;
+        }
+        button, input[type="number"] {
+            font-family: var(--font-primary);
+            background-color: transparent;
+            color: var(--color-primary-neon);
+            border: 1px solid var(--color-primary-neon);
+            border-radius: 0.25rem; /* rounded-sm for sharper edges */
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 5px var(--color-primary-neon);
+            outline: none;
+        }
+        button:hover, input[type="number"]:hover {
+            background-color: var(--color-primary-neon);
+            color: var(--color-background);
+            box-shadow: 0 0 10px var(--color-primary-neon), 0 0 15px var(--color-primary-neon);
+        }
+        button:disabled {
+            border-color: var(--color-text-muted);
+            color: var(--color-text-muted);
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+        button:disabled:hover {
+            background-color: transparent;
+            color: var(--color-text-muted);
+        }
+        input[type="number"] {
+            background-color: var(--color-background); /* Darker input background */
+            padding: 0.5rem;
+            width: 100%;
+        }
+        input[type="number"]:focus {
+            border-color: var(--color-secondary-neon);
+            box-shadow: 0 0 8px var(--color-secondary-neon);
+        }
+        label {
+            color: var(--color-primary-neon);
+            font-family: var(--font-primary);
+        }
+        .sequencer-step {
+            width: 38px; /* Adjusted for new style */
+            height: 38px;
+            border: 1px solid var(--color-border);
+            margin: 1px; /* Reduced margin */
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 2px; /* Sharper corners */
+            transition: background-color 0.2s, box-shadow 0.2s, border-color 0.2s;
+            background-color: rgba(0, 255, 204, 0.05); /* Faint neon tint */
+        }
+        .sequencer-step:hover {
+            border-color: var(--color-primary-neon);
+            box-shadow: 0 0 5px var(--color-primary-neon) inset;
+        }
+        .sequencer-step.active {
+            background-color: var(--color-primary-neon);
+            box-shadow: 0 0 8px var(--color-primary-neon);
+            border-color: var(--color-primary-neon);
+        }
+        .sequencer-step.active::before { /* Inner glow effect for active steps */
+            content: '';
+            display: block;
+            width: 50%;
+            height: 50%;
+            background-color: var(--color-background);
+            opacity: 0.7;
+            border-radius: 1px;
+        }
+        .sequencer-step.playing {
+            background-color: var(--color-secondary-neon);
+            border-color: var(--color-secondary-neon);
+            box-shadow: 0 0 10px var(--color-secondary-neon), 0 0 5px var(--color-secondary-neon) inset;
+        }
+        .sequencer-step.playing::before {
+             background-color: var(--color-primary-neon);
+             opacity: 0.8;
+        }
+        .track-header {
+            min-width: 160px;
+            background-color: rgba(148, 0, 211, 0.1); /* Faint secondary neon */
+            border-right: 1px solid var(--color-secondary-neon) !important;
+        }
+        #sequencerGrid table {
+            border: 1px solid var(--color-border);
+        }
+        #sequencerGrid th, #sequencerGrid td {
+             border: 1px solid var(--color-border);
+        }
+        #sequencerGrid th {
+            color: var(--color-text-muted);
+            font-family: var(--font-secondary);
+            font-weight: 300;
+            background-color: var(--color-background);
+         }
+        .sample-item {
+            cursor: pointer;
+            border: 1px solid var(--color-border);
+            background-color: rgba(0, 255, 204, 0.05);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+        .sample-item:hover {
+            background-color: rgba(0, 255, 204, 0.15);
+            border-color: var(--color-primary-neon);
+        }
+        .sample-item span {
+            color: var(--color-text);
+        }
+        .sample-item button svg {
+            color: var(--color-primary-neon);
+            transition: transform 0.2s;
+        }
+        .sample-item button:hover svg {
+            transform: scale(1.2);
+            filter: drop-shadow(0 0 3px var(--color-primary-neon));
+        }
+        /* Custom modal styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(10, 10, 15, 0.85); /* Darker, more opaque backdrop */
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background-color: var(--color-surface);
+            margin: auto;
+            padding: 25px;
+            border: 1px solid var(--color-primary-neon);
+            width: 90%;
+            max-width: 550px;
+            border-radius: 4px; /* Sharper */
+            box-shadow: 0 0 20px var(--color-primary-neon), 0 0 10px var(--color-secondary-neon) inset;
+            color: var(--color-text);
+        }
+        /* Waveform editor styles */
+        #waveformContainer {
+            height: 120px;
+            border: 1px solid var(--color-border);
+            background: rgba(0,0,0,0.3);
+            box-shadow: 0 0 10px var(--color-primary-neon) inset;
+        }
+        #editorModal .modal-content {
+            border-color: var(--color-secondary-neon);
+            box-shadow: 0 0 20px var(--color-secondary-neon), 0 0 10px var(--color-primary-neon) inset;
+        }
+        #waveformTimeline {
+            height: 20px;
+        }
+        #selectionOverlay {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            background: rgba(0,255,204,0.15);
+            pointer-events: none;
+        }
+        .modal-close-button {
+            color: var(--color-primary-neon);
+            float: right;
+            font-size: 32px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.2s, text-shadow 0.2s;
+        }
+        .modal-close-button:hover,
+        .modal-close-button:focus {
+            color: #fff; /* Brighter on hover */
+            text-shadow: 0 0 8px var(--color-primary-neon);
+            text-decoration: none;
+        }
+        #modalSampleList .p-2:hover { /* For sample items in modal */
+             background-color: rgba(0, 255, 204, 0.2);
+             border-color: var(--color-primary-neon);
+        }
+        /* Loading indicator */
+        .loader {
+            border: 3px solid var(--color-border);
+            border-top: 3px solid var(--color-primary-neon);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            display: inline-block; /* Ensure it aligns well with text */
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Message Area */
+        #messageArea {
+            font-family: var(--font-primary);
+            border: 1px solid;
+            box-shadow: 0 0 10px;
+        }
+        #messageArea.bg-red-500 { /* Tailwind override */
+            background-color: rgba(255, 0, 0, 0.7) !important; /* More cyberpunk red */
+            border-color: #ff0000;
+            color: #fff;
+            text-shadow: 0 0 5px #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+        }
+        #messageArea.bg-green-500 { /* Tailwind override */
+            background-color: rgba(0, 255, 0, 0.7) !important; /* More cyberpunk green */
+            border-color: #00ff00;
+            color: var(--color-background);
+            text-shadow: 0 0 5px #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        #messageArea.bg-blue-500 { /* Tailwind override for info */
+            background-color: rgba(0, 100, 255, 0.7) !important; /* Cyberpunk info blue */
+            border-color: #0064ff;
+            color: #fff;
+            text-shadow: 0 0 5px #0064ff;
+            box-shadow: 0 0 10px #0064ff;
+        }
+        /* Specific button styling for cyberpunk theme */
+        #startRecordButton {
+            border-color: #00ff00; /* Neon Green */
+            color: #00ff00;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        #startRecordButton:hover:not(:disabled) {
+            background-color: #00ff00;
+            color: var(--color-background);
+            box-shadow: 0 0 10px #00ff00, 0 0 15px #00ff00;
+        }
+        #stopRecordButton {
+            border-color: #ff0000; /* Neon Red */
+            color: #ff0000;
+            box-shadow: 0 0 5px #ff0000;
+        }
+        #stopRecordButton:hover:not(:disabled) {
+            background-color: #ff0000;
+            color: var(--color-background);
+            box-shadow: 0 0 10px #ff0000, 0 0 15px #ff0000;
+        }
+        #playSequencerButton {
+            border-color: var(--color-primary-neon);
+        }
+        #stopSequencerButton {
+            border-color: #ff8c00; /* Dark Orange / Amber */
+            color: #ff8c00;
+            box-shadow: 0 0 5px #ff8c00;
+        }
+        #stopSequencerButton:hover:not(:disabled) {
+            background-color: #ff8c00;
+            color: var(--color-background);
+            box-shadow: 0 0 10px #ff8c00, 0 0 15px #ff8c00;
+        }
+        /* Initial Audio Button */
+        #startAudioContextButton {
+            font-family: var(--font-primary);
+            background-color: var(--color-secondary-neon);
+            color: var(--color-text);
+            border: 1px solid var(--color-primary-neon);
+            box-shadow: 0 0 10px var(--color-secondary-neon), 0 0 20px var(--color-primary-neon);
+            z-index: 2000; /* Ensure it's on top */
+        }
+        #startAudioContextButton:hover {
+            background-color: var(--color-primary-neon);
+            color: var(--color-background);
+            box-shadow: 0 0 15px var(--color-primary-neon), 0 0 30px var(--color-primary-neon);
+        }
+        /* Tailwind class overrides for sections */
+        .section-bg {
+            background-color: rgba(18, 18, 28, 0.7); /* var(--color-surface) with more transparency */
+            border: 1px solid var(--color-border);
+            box-shadow: 0 0 8px rgba(0, 255, 204, 0.3) inset;
+        }
+        .text-muted-cyber {
+            color: var(--color-text-muted);
+            font-family: var(--font-secondary);
+        }
+        /* Ensure recording status paragraph takes up space to help with alignment */
+        #recordingStatus {
+            min-height: 1.25rem; /* Equivalent to text-sm line height, adjust if needed */
+            display: flex; /* For aligning loader and text */
+            align-items: center; /* For aligning loader and text */
+            justify-content: center; /* For aligning loader and text */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="container mx-auto max-w-5xl p-6 rounded-lg">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold">ALIEN BEAT MATRIX</h1>
+            <p class="text-muted-cyber">Inject sonic DNA. Sequence reality.</p>
+        </header>
+
+        <section id="controls" class="mb-8 p-4 rounded-lg section-bg">
+            <h2 class="text-2xl font-semibold mb-4">SYSTEM INTERFACE</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 items-stretch">
+                <div class="flex flex-col space-y-3">
+                    <button id="startRecordButton" class="py-2 px-4 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 0 0 6-6V7.5a6 6 0 0 0-12 0v5.25a6 6 0 0 0 6 6Z" />
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12a7.5 7.5 0 1 1-15 0 7.5 7.5 0 0 1 15 0Z" />
+                        </svg>
+                        INITIATE CAPTURE
+                    </button>
+                    <button id="stopRecordButton" class="py-2 px-4 flex items-center justify-center" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+                        </svg>
+                        TERMINATE CAPTURE
+                    </button>
+                    <p id="recordingStatus" class="text-sm text-center text-muted-cyber"></p>
+                </div>
+
+                <div class="flex flex-col space-y-3">
+                    <button id="playSequencerButton" class="py-2 px-4 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                        </svg>
+                        ACTIVATE SEQUENCE
+                    </button>
+                    <button id="stopSequencerButton" class="py-2 px-4 flex items-center justify-center" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 7.5A2.25 2.25 0 0 1 7.5 5.25h9a2.25 2.25 0 0 1 2.25 2.25v9a2.25 2.25 0 0 1-2.25 2.25h-9a2.25 2.25 0 0 1-2.25-2.25v-9Z" />
+                        </svg>
+                        DEACTIVATE SEQUENCE
+                    </button>
+                    <div class="flex-grow"></div>
+                </div>
+
+                <div class="flex flex-col space-y-3">
+                     <div>
+                        <label for="tempo" class="block text-sm font-medium">CHRONOSYNC (BPM):</label>
+                        <input type="number" id="tempo" value="120" min="40" max="240" class="mt-1 block w-full px-3 py-2 shadow-sm sm:text-sm">
+                    </div>
+                    <div>
+                        <label for="micSelect" class="block text-sm font-medium">INPUT DEVICE:</label>
+                        <div class="flex gap-2 items-center mt-1">
+                            <select id="micSelect" class="mt-1 block w-full px-3 py-2 bg-black/40 shadow-sm sm:text-sm"></select>
+                            <button id="refreshDevicesButton" class="py-2 px-3 text-xs" title="Refresh input devices">REFRESH</button>
+                        </div>
+                        <p id="permissionStatus" class="text-xs text-muted-cyber mt-1"></p>
+                    </div>
+                    <div class="flex-grow"></div>
+                </div>
+            </div>
+        </section>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <section id="sampleLibrary" class="md:col-span-1 p-4 rounded-lg section-bg">
+                <h2 class="text-xl font-semibold mb-4">SAMPLE BAY</h2>
+                <div id="sampleList" class="space-y-2 max-h-96 overflow-y-auto pr-2">
+                     <p class="text-muted-cyber p-2">No samples acquired. Initiate capture protocol.</p>
+                </div>
+                <div class="mt-4 flex gap-2">
+                    <button id="exportStemsButton" class="py-2 px-3 text-xs" title="Export active pattern as individual stems">EXPORT STEMS</button>
+                    <a id="exportDownloadLink" class="hidden"></a>
+                </div>
+            </section>
+
+            <section id="sequencer" class="md:col-span-2 p-4 rounded-lg section-bg">
+                <h2 class="text-xl font-semibold mb-3">PATTERN GRID</h2>
+                <div id="sequencerGrid" class="overflow-x-auto">
+                    </div>
+            </section>
+        </div>
+    </div>
+
+    <div id="sampleModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close-button" id="closeModalButton">&times;</span>
+            <h3 class="text-xl font-medium mb-4">LOAD SAMPLE</h3>
+            <div id="modalSampleList" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                </div>
+            <p id="modalNoSamples" class="text-muted-cyber hidden">Sample bay empty.</p>
+        </div>
+    </div>
+
+    <div id="editorModal" class="modal">
+        <div class="modal-content">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-xl font-medium">SAMPLE SURGERY</h3>
+                <span class="modal-close-button" id="editorCloseButton">&times;</span>
+            </div>
+            <p id="editorSampleName" class="text-sm text-muted-cyber mb-3"></p>
+            <div id="waveformContainer" class="rounded-sm relative"><div id="selectionOverlay"></div></div>
+            <div class="flex items-center gap-2 mt-3">
+                <button id="trimApplyButton" class="py-1 px-3 text-xs">APPLY TRIM</button>
+                <button id="trimResetButton" class="py-1 px-3 text-xs">RESET</button>
+                <button id="zoomInButton" class="py-1 px-3 text-xs">ZOOM +</button>
+                <button id="zoomOutButton" class="py-1 px-3 text-xs">ZOOM −</button>
+                <span id="trimInfo" class="text-xs text-muted-cyber"></span>
+            </div>
+        </div>
+    </div>
+
+    <div id="messageArea" class="fixed bottom-4 right-4 p-4 rounded-md shadow-md hidden animate-pulse text-sm">
+        </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const NUM_TRACKS = 4;
+        const NUM_STEPS = 16;
+
+        // --- DOM ELEMENTS ---
+        const startRecordButton = document.getElementById('startRecordButton');
+        const stopRecordButton = document.getElementById('stopRecordButton');
+        const recordingStatus = document.getElementById('recordingStatus');
+        const sampleList = document.getElementById('sampleList');
+        const sequencerGridContainer = document.getElementById('sequencerGrid');
+        const playSequencerButton = document.getElementById('playSequencerButton');
+        const stopSequencerButton = document.getElementById('stopSequencerButton');
+        const tempoInput = document.getElementById('tempo');
+        const messageArea = document.getElementById('messageArea');
+        const micSelect = document.getElementById('micSelect');
+        const refreshDevicesButton = document.getElementById('refreshDevicesButton');
+        const permissionStatus = document.getElementById('permissionStatus');
+
+        // Modal elements
+        const sampleModal = document.getElementById('sampleModal');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const modalSampleList = document.getElementById('modalSampleList');
+        const modalNoSamples = document.getElementById('modalNoSamples');
+
+        // --- AUDIO CONTEXT & TONE.JS SETUP ---
+        let mic = null; // Initialize mic as null
+        let recorder = null; // Can be Tone.Recorder or a native adapter
+        let isRecording = false;
+        const recordedSamples = []; // Stores { name, url, player, arrayBuffer, trim: {start,end} }
+        const trackPlayers = new Array(NUM_TRACKS).fill(null);
+        let sequencerData = Array(NUM_TRACKS).fill(null).map(() => Array(NUM_STEPS).fill(false));
+        let currentTrackToLoad = -1;
+        let currentStepIndicator = -1;
+
+        // Native MediaRecorder fallback (for browsers where Tone.Recorder/mic fails)
+        let useNativeRecorder = false;
+        let nativeMediaRecorder = null;
+        let nativeMediaStream = null;
+        let nativeChunks = [];
+        let nativeMimeType = '';
+        let selectedDeviceId = '';
+
+        async function setupNativeRecorder() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                return false;
+            }
+            try {
+                const constraints = {
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false,
+                        channelCount: 1,
+                        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined
+                        // sampleRate: 44100 // some browsers ignore this; leaving commented avoids failures
+                    }
+                };
+                if (nativeMediaStream) {
+                    nativeMediaStream.getTracks().forEach(t => t.stop());
+                    nativeMediaStream = null;
+                }
+                nativeMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                const mimeCandidates = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
+                nativeMimeType = mimeCandidates.find(type => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type)) || '';
+                nativeMediaRecorder = new MediaRecorder(nativeMediaStream, nativeMimeType ? { mimeType: nativeMimeType } : undefined);
+                useNativeRecorder = true;
+                recorder = {
+                    start: async () => {
+                        nativeChunks = [];
+                        nativeMediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) nativeChunks.push(e.data); };
+                        nativeMediaRecorder.start();
+                    },
+                    stop: async () => new Promise((resolve, reject) => {
+                        try {
+                            nativeMediaRecorder.onstop = () => {
+                                const blobType = nativeMimeType || (nativeChunks[0] && nativeChunks[0].type) || 'audio/webm';
+                                resolve(new Blob(nativeChunks, { type: blobType }));
+                            };
+                            nativeMediaRecorder.stop();
+                        } catch (e) { reject(e); }
+                    })
+                };
+                console.log('Native MediaRecorder ready with type:', nativeMimeType || '(default)');
+                showMessage(`Mic ready (native ${nativeMimeType || 'default'})`, 'success', 1500);
+                return true;
+            } catch (err) {
+                console.error('Native MediaRecorder setup failed:', err);
+                return false;
+            }
+        }
+
+        async function listInputDevices() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const inputs = devices.filter(d => d.kind === 'audioinput');
+                micSelect.innerHTML = '';
+                inputs.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.textContent = d.label || `Input ${micSelect.length + 1}`;
+                    micSelect.appendChild(opt);
+                });
+                if (!selectedDeviceId && inputs[0]) {
+                    selectedDeviceId = inputs[0].deviceId;
+                }
+                if (selectedDeviceId) micSelect.value = selectedDeviceId;
+                permissionStatus.textContent = inputs.length ? 'Inputs available.' : 'No audio inputs found.';
+            } catch (e) {
+                console.error('enumerateDevices failed', e);
+                permissionStatus.textContent = 'Unable to list devices (permission needed).';
+            }
+        }
+
+        // Function to show messages
+        function showMessage(text, type = 'error', duration = 3000) {
+            messageArea.textContent = text;
+            messageArea.classList.remove('bg-red-500', 'bg-green-500', 'bg-blue-500', 'border-red-500', 'border-green-500', 'border-blue-500');
+            messageArea.classList.remove('hidden', 'animate-pulse');
+
+            if (type === 'error') {
+                messageArea.classList.add('bg-red-500');
+            } else if (type === 'success') {
+                messageArea.classList.add('bg-green-500');
+            } else { // Default to info
+                messageArea.classList.add('bg-blue-500');
+            }
+            void messageArea.offsetWidth; // Trigger reflow to restart animation
+            messageArea.classList.add('animate-pulse');
+            setTimeout(() => {
+                messageArea.classList.add('hidden');
+                messageArea.classList.remove('animate-pulse');
+            }, duration);
+        }
+
+        // Initialize mic/recorder. Prefer native MediaRecorder for widest compatibility.
+        async function initAudio() {
+            try {
+                const nativeOk = await setupNativeRecorder();
+                if (nativeOk) {
+                    console.log('Using native MediaRecorder for capture.');
+                    startRecordButton.disabled = false;
+                    startRecordButton.title = 'Initiate Capture';
+                    recordingStatus.textContent = '';
+                    await listInputDevices();
+                    return true;
+                }
+
+                // Fallback to Tone.UserMedia + Tone.Recorder
+                if (mic && typeof mic.close === 'function') {
+                    mic.close();
+                }
+                mic = new Tone.UserMedia();
+                await mic.open();
+                const toneRecorder = new Tone.Recorder();
+                mic.connect(toneRecorder);
+                recorder = toneRecorder;
+                startRecordButton.disabled = false;
+                startRecordButton.title = 'Initiate Capture';
+                recordingStatus.textContent = '';
+                await listInputDevices();
+                return true;
+            } catch (err) {
+                console.error('initAudio failed:', err);
+                let errorMessage = `Microphone initialization failed.`;
+                if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+                    errorMessage += ' No microphone found. Please connect a microphone.';
+                } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    errorMessage += ' Microphone permission was denied. Please allow access in browser settings.';
+                } else if (err.message) {
+                    errorMessage += ` Details: ${err.message}`;
+                }
+                errorMessage += ' Ensure you are on https or localhost.';
+                showMessage(errorMessage, 'error', 8000);
+                recordingStatus.textContent = 'Mic access failed.';
+                startRecordButton.disabled = true;
+                startRecordButton.title = 'Microphone unavailable';
+                if (mic && typeof mic.close === 'function') mic.close();
+                mic = null;
+                return false;
+            }
+        }
+
+        // --- RECORDING ---
+        startRecordButton.addEventListener('click', async () => {
+            try {
+                // We allow recording even if Tone isn't started yet
+                if (((!mic || !mic.isOpen) && !useNativeRecorder) || !recorder) {
+                    showMessage("Initializing audio capture... please allow microphone access if prompted.", "info", 3500);
+                    recordingStatus.innerHTML = '<div class="loader"></div> Initializing Mic...';
+                    const micReady = await initAudio();
+
+                    if (!micReady) {
+                        console.log("Microphone initialization failed as reported by initAudio.");
+                        // recordingStatus updated by initAudio
+                        return;
+                    }
+                }
+
+                if ((!mic || !mic.isOpen) && !useNativeRecorder) { // Neither Tone mic nor native available
+                    console.error("Critical error: No recording source available.");
+                    showMessage("Unexpected error: No recording source available.", "error", 5000);
+                    recordingStatus.textContent = "Mic setup error.";
+                    startRecordButton.disabled = true;
+                    return;
+                }
+
+                if (isRecording) {
+                    console.warn("Already recording. This should not happen if UI state is correct.");
+                    return;
+                }
+
+                await recorder.start();
+                isRecording = true;
+                startRecordButton.disabled = true;
+                stopRecordButton.disabled = false;
+                recordingStatus.innerHTML = '<div class="loader"></div> CAPTURING AUDIO SIGNAL...';
+                console.log("Recording started");
+
+            } catch (err) {
+                console.error("Error in Start Record Button click handler:", err);
+                showMessage(`CAPTURE FAILED: ${err.message}`, "error", 5000);
+                recordingStatus.textContent = "Capture failed.";
+                startRecordButton.disabled = false;
+                stopRecordButton.disabled = true;
+                isRecording = false;
+            }
+        });
+
+        stopRecordButton.addEventListener('click', async () => {
+            if (!isRecording || !recorder) {
+                console.log("Not recording or recorder not available.");
+                return;
+            }
+            try {
+                const recordingBlob = await recorder.stop();
+                isRecording = false;
+                startRecordButton.disabled = false;
+                stopRecordButton.disabled = true;
+                recordingStatus.textContent = "Processing sample...";
+
+                const sampleUrl = URL.createObjectURL(recordingBlob);
+                const sampleName = `SAMPLE_0${recordedSamples.length + 1}`;
+
+                const player = new Tone.Player().toDestination(); // Chain toDestination
+                await player.load(sampleUrl);
+                // player.toDestination(); // Already chained
+                // Cache ArrayBuffer for trimming/waveform
+                const arrayBuffer = await recordingBlob.arrayBuffer();
+                recordedSamples.push({ name: sampleName, url: sampleUrl, player: player, arrayBuffer, trim: null });
+                updateSampleList();
+                recordingStatus.textContent = `Sample "${sampleName}" acquired.`;
+                console.log("Recording stopped. Sample saved:", sampleName);
+                showMessage(`SAMPLE "${sampleName}" ACQUIRED`, "success");
+
+            } catch (err) {
+                console.error("Error stopping recording or loading sample:", err);
+                showMessage(`Error processing sample: ${err.message}`, "error", 5000);
+                recordingStatus.textContent = "Sample processing failed.";
+                isRecording = false;
+                startRecordButton.disabled = false;
+                stopRecordButton.disabled = true;
+            }
+        });
+
+        // --- SAMPLE LIBRARY UI ---
+        function updateSampleList() {
+            sampleList.innerHTML = '';
+            if (recordedSamples.length === 0) {
+                sampleList.innerHTML = '<p class="text-muted-cyber p-2">No samples acquired. Initiate capture protocol.</p>';
+                return;
+            }
+            recordedSamples.forEach((sample, idx) => {
+                const sampleDiv = document.createElement('div');
+                sampleDiv.className = 'sample-item p-2 rounded-sm flex justify-between items-center';
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = sample.name;
+                nameSpan.className = 'text-sm';
+                sampleDiv.appendChild(nameSpan);
+
+                const playButton = document.createElement('button');
+                playButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15.91 11.672a.375.375 0 0 1 0 .656l-5.603 3.113a.375.375 0 0 1-.557-.328V8.887c0-.286.307-.466.557-.327l5.603 3.112Z" /></svg>`;
+                playButton.className = 'p-1 rounded-full border-0 shadow-none hover:bg-transparent';
+                playButton.title = `Playback ${sample.name}`;
+                playButton.onclick = (e) => {
+                    e.stopPropagation();
+                    playSamplePreview(sample);
+                };
+                sampleDiv.appendChild(playButton);
+
+                const editButton = document.createElement('button');
+                editButton.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125 16.875 4.5" /></svg>`;
+                editButton.className = 'p-1 rounded-full border-0 shadow-none hover:bg-transparent';
+                editButton.title = `Edit ${sample.name}`;
+                editButton.onclick = (e) => { e.stopPropagation(); openEditor(sample, idx); };
+                sampleDiv.appendChild(editButton);
+                sampleList.appendChild(sampleDiv);
+            });
+        }
+
+        async function playSamplePreview(sample) {
+            try {
+                // If a trim range exists, play only that region
+                if (sample.trim && sample.trim.end > sample.trim.start && sample.player && sample.player.loaded) {
+                    sample.player.start(undefined, sample.trim.start, sample.trim.end - sample.trim.start);
+                    return;
+                }
+                if (sample.player && sample.player.loaded) {
+                    sample.player.start();
+                } else if (sample.player) {
+                    showMessage(`Loading ${sample.name} for playback...`, "info", 1500);
+                    await sample.player.load(sample.url);
+                    sample.player.start();
+                } else {
+                    showMessage(`Player for ${sample.name} not available.`, "error");
+                }
+            } catch (err) {
+                showMessage(`Error playing ${sample.name}: ${err.message}`, "error");
+            }
+        }
+
+        // --- SEQUENCER GRID ---
+        function createSequencerGrid() {
+            sequencerGridContainer.innerHTML = '';
+            const table = document.createElement('table');
+            table.className = 'w-full border-collapse';
+            const thead = table.createTHead();
+            const headerRow = thead.insertRow();
+            const thCorner = document.createElement('th');
+            thCorner.className = 'p-1 track-header';
+            headerRow.appendChild(thCorner);
+            for (let step = 0; step < NUM_STEPS; step++) {
+                const th = document.createElement('th');
+                th.textContent = String(step + 1).padStart(2, '0');
+                th.className = 'p-1 text-xs font-medium text-center'; // Added text-center
+                headerRow.appendChild(th);
+            }
+            const tbody = table.createTBody();
+            for (let i = 0; i < NUM_TRACKS; i++) {
+                const trackRow = tbody.insertRow();
+                const trackInfoCell = trackRow.insertCell();
+                trackInfoCell.className = 'p-2 track-header align-top';
+                const trackLabel = document.createElement('div');
+                trackLabel.textContent = `CHANNEL ${String(i + 1).padStart(2, '0')}`;
+                trackLabel.className = 'font-semibold text-sm mb-1';
+                trackInfoCell.appendChild(trackLabel);
+                const loadedSampleName = document.createElement('div');
+                loadedSampleName.id = `track-${i}-sample-name`;
+                loadedSampleName.textContent = '[NO SAMPLE LOADED]';
+                loadedSampleName.className = 'text-xs italic mb-2 truncate text-muted-cyber';
+                trackInfoCell.appendChild(loadedSampleName);
+                const loadButton = document.createElement('button');
+                loadButton.textContent = 'ASSIGN SAMPLE';
+                loadButton.className = 'text-xs py-1 px-2 w-full';
+                loadButton.onclick = () => openSampleModal(i);
+                trackInfoCell.appendChild(loadButton);
+                for (let j = 0; j < NUM_STEPS; j++) {
+                    const stepCell = trackRow.insertCell();
+                    const stepDiv = document.createElement('div');
+                    stepDiv.className = 'sequencer-step';
+                    stepDiv.dataset.track = i;
+                    stepDiv.dataset.step = j;
+                    stepDiv.addEventListener('click', toggleStep);
+                    stepCell.appendChild(stepDiv);
+                }
+            }
+            sequencerGridContainer.appendChild(table);
+        }
+
+        function toggleStep(event) {
+            const stepDiv = event.currentTarget;
+            const track = parseInt(stepDiv.dataset.track);
+            const step = parseInt(stepDiv.dataset.step);
+            sequencerData[track][step] = !sequencerData[track][step];
+            stepDiv.classList.toggle('active', sequencerData[track][step]);
+        }
+
+        function updateStepHighlight(currentStep) {
+            document.querySelectorAll('.sequencer-step.playing').forEach(el => el.classList.remove('playing'));
+            if (currentStep !== -1 && Tone.Transport.state === "started") {
+                document.querySelectorAll(`.sequencer-step[data-step="${currentStep}"]`).forEach(el => el.classList.add('playing'));
+            }
+        }
+
+        // --- SAMPLE MODAL ---
+        function openSampleModal(trackIndex) {
+            currentTrackToLoad = trackIndex;
+            modalSampleList.innerHTML = '';
+            if (recordedSamples.length === 0) {
+                modalSampleList.innerHTML = ''; // Clear just in case
+                modalNoSamples.classList.remove('hidden');
+            } else {
+                modalNoSamples.classList.add('hidden');
+                recordedSamples.forEach((sample, idx) => {
+                    const sampleDiv = document.createElement('div');
+                    sampleDiv.textContent = sample.name;
+                    sampleDiv.className = 'p-2 border border-transparent hover:border-current rounded-sm cursor-pointer text-sm';
+                    sampleDiv.style.borderColor = 'var(--color-border)'; // Initial border
+                    sampleDiv.onmouseover = () => sampleDiv.style.borderColor = 'var(--color-primary-neon)';
+                    sampleDiv.onmouseout = () => sampleDiv.style.borderColor = 'var(--color-border)';
+                    sampleDiv.onclick = () => selectSampleForTrack(sample, idx);
+                    modalSampleList.appendChild(sampleDiv);
+                });
+            }
+            sampleModal.style.display = 'flex';
+        }
+
+        function closeSampleModal() {
+            sampleModal.style.display = 'none';
+            currentTrackToLoad = -1;
+        }
+        closeModalButton.addEventListener('click', closeSampleModal);
+        window.addEventListener('click', (event) => {
+            if (event.target === sampleModal) {
+                closeSampleModal();
+            }
+        });
+
+        function selectSampleForTrack(sample, sampleIndex) {
+            if (currentTrackToLoad !== -1 && sample.player) {
+                // Ensure the player's buffer is loaded before assigning
+                const assignBufferToTrack = () => {
+                    try {
+                        // Create a dedicated Player per track to allow overlapping/reuse
+                        const newPlayer = new Tone.Player(sample.player.buffer).toDestination();
+                        // Apply trim by setting .loopStart/.loopEnd and reading a subrange on start
+                        if (sample.trim && sample.trim.end > sample.trim.start) {
+                            newPlayer.loop = false;
+                            // store trim on the player for use during start
+                            newPlayer._trim = { start: sample.trim.start, end: sample.trim.end };
+                        }
+                        newPlayer._sourceIndex = typeof sampleIndex === 'number' ? sampleIndex : -1;
+                        // Dispose any previous assignment to free resources
+                        if (trackPlayers[currentTrackToLoad]) {
+                            try { trackPlayers[currentTrackToLoad].dispose(); } catch (_) {}
+                        }
+                        trackPlayers[currentTrackToLoad] = newPlayer;
+                        const sampleNameEl = document.getElementById(`track-${currentTrackToLoad}-sample-name`);
+                        sampleNameEl.textContent = sample.name;
+                        sampleNameEl.classList.remove('text-muted-cyber');
+                        console.log(`Sample "${sample.name}" assigned to Track ${currentTrackToLoad + 1}`);
+                        showMessage(`ASSIGNED: "${sample.name}" TO CHANNEL ${String(currentTrackToLoad + 1).padStart(2,'0')}`, "success");
+                    } catch (e) {
+                        showMessage(`Assignment failed: ${e.message}`, "error", 5000);
+                    }
+                };
+
+                if (sample.player.loaded) {
+                    assignBufferToTrack();
+                } else {
+                    // Attempt to load if not yet loaded
+                    showMessage(`Loading ${sample.name}...`, "info", 2000);
+                    sample.player.load(sample.url).then(() => {
+                        if (sample.player.loaded) {
+                            assignBufferToTrack();
+                        } else {
+                            showMessage(`Error: Sample "${sample.name}" could not be loaded. Try re-recording.`, "error", 5000);
+                        }
+                    }).catch(err => {
+                        showMessage(`Error loading sample "${sample.name}": ${err.message}`, "error", 5000);
+                    });
+                }
+            } else {
+                showMessage(`Error assigning sample. Player or track invalid.`, "error", 5000);
+            }
+            closeSampleModal();
+        }
+
+        // --- SEQUENCER PLAYBACK ---
+        let sequence;
+        function setupSequencerPlayback() {
+            if (sequence) {
+                sequence.dispose();
+            }
+            const stepsArray = Array.from(Array(NUM_STEPS).keys()); // [0, 1, 2, ..., 15]
+            sequence = new Tone.Sequence((time, step) => {
+                for (let track = 0; track < NUM_TRACKS; track++) {
+                    const p = trackPlayers[track];
+                    const isPlayerReady = p && (p.loaded || p.buffer);
+                    if (sequencerData[track][step] && isPlayerReady) {
+                        if (p._trim && p._trim.end > p._trim.start) {
+                            p.start(time, p._trim.start, p._trim.end - p._trim.start);
+                        } else {
+                            p.start(time);
+                        }
+                    }
+                }
+                Tone.Draw.schedule(() => { // Use Tone.Draw for UI updates synchronized with audio
+                    updateStepHighlight(step);
+                }, time);
+            }, stepsArray, "16n"); // "16n" means each step is a 16th note
+
+            Tone.Transport.bpm.value = parseInt(tempoInput.value);
+        }
+
+        // --- WAVEFORM EDITOR (TRIM) ---
+        let waveSurfer = null;
+        let selectionStart = null;
+        let selectionEnd = null;
+        let containerClickHandler = null;
+        let currentEditIndex = -1;
+        const editorModal = document.getElementById('editorModal');
+        const editorCloseButton = document.getElementById('editorCloseButton');
+        const editorSampleName = document.getElementById('editorSampleName');
+        const trimApplyButton = document.getElementById('trimApplyButton');
+        const trimResetButton = document.getElementById('trimResetButton');
+        const trimInfo = document.getElementById('trimInfo');
+
+        function closeEditor() {
+            try { waveSurfer && waveSurfer.destroy(); } catch (_) {}
+            waveSurfer = null;
+            editorModal.style.display = 'none';
+            currentEditIndex = -1;
+            trimInfo.textContent = '';
+            selectionStart = null;
+            selectionEnd = null;
+            const container = document.getElementById('waveformContainer');
+            if (container && containerClickHandler) {
+                container.removeEventListener('click', containerClickHandler, true);
+                containerClickHandler = null;
+            }
+            const overlay = document.getElementById('selectionOverlay');
+            if (overlay) { overlay.style.left = '0px'; overlay.style.width = '0px'; }
+        }
+        editorCloseButton.addEventListener('click', closeEditor);
+        window.addEventListener('click', (event) => {
+            if (event.target === editorModal) closeEditor();
+        });
+
+        function openEditor(sample, index) {
+            currentEditIndex = index;
+            editorSampleName.textContent = sample.name;
+            const wfContainer = document.getElementById('waveformContainer');
+            wfContainer.innerHTML = '';
+            try { waveSurfer && waveSurfer.destroy(); } catch (_) {}
+            try {
+                waveSurfer = WaveSurfer.create({
+                    container: wfContainer,
+                    waveColor: 'rgba(0,255,204,0.35)',
+                    progressColor: 'rgba(148,0,211,0.7)',
+                    cursorColor: '#00ffcc',
+                    barWidth: 1,
+                    height: 120,
+                    interact: true
+                });
+            } catch (e) {
+                console.error('WaveSurfer create failed', e);
+                showMessage('Waveform engine failed to load. Check network and refresh.', 'error', 5000);
+                return;
+            }
+
+            const blob = sample.arrayBuffer ? new Blob([sample.arrayBuffer]) : null;
+            if (blob) {
+                const url = URL.createObjectURL(blob);
+                waveSurfer.load(url);
+            } else {
+                waveSurfer.load(sample.url);
+            }
+
+            waveSurfer.on('ready', () => {
+                trimInfo.textContent = 'Click once to set START, again to set END.';
+                // Preload existing trim as selection
+                if (sample.trim) {
+                    selectionStart = sample.trim.start;
+                    selectionEnd = sample.trim.end;
+                    updateSelectionOverlay();
+                }
+            });
+
+            waveSurfer.on('error', (e) => {
+                console.error('WaveSurfer error:', e);
+                showMessage('Error rendering waveform. Try reloading.', 'error', 4000);
+            });
+
+            const updateInfo = () => {
+                if (selectionStart != null && selectionEnd != null && selectionEnd > selectionStart) {
+                    trimInfo.textContent = `Start: ${selectionStart.toFixed(3)}s  End: ${selectionEnd.toFixed(3)}s  Length: ${(selectionEnd - selectionStart).toFixed(3)}s`;
+                }
+            };
+
+            // Click-to-select (two clicks)
+            const wfContainer2 = document.getElementById('waveformContainer');
+            const handleClick = (e) => {
+                if (!waveSurfer) return;
+                const rect = wfContainer2.getBoundingClientRect();
+                const x = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1);
+                const time = x * waveSurfer.getDuration();
+                if (selectionStart === null) {
+                    selectionStart = time;
+                    selectionEnd = null;
+                    trimInfo.textContent = `Start: ${selectionStart.toFixed(3)}s — click to set End`;
+                } else {
+                    selectionEnd = time;
+                    if (selectionEnd < selectionStart) {
+                        const t = selectionStart; selectionStart = selectionEnd; selectionEnd = t;
+                    }
+                    updateSelectionRegion();
+                }
+                updateSelectionOverlay();
+            };
+            containerClickHandler = handleClick;
+            wfContainer2.addEventListener('click', handleClick, true);
+
+            function updateSelectionOverlay() {
+                const overlay = document.getElementById('selectionOverlay');
+                const dur = waveSurfer.getDuration() || 0;
+                if (!overlay || dur === 0 || selectionStart === null) return;
+                const rect = wfContainer2.getBoundingClientRect();
+                const startX = (selectionStart / dur) * rect.width;
+                let width = 0;
+                if (selectionEnd !== null) {
+                    const endX = (selectionEnd / dur) * rect.width;
+                    width = Math.max(0, endX - startX);
+                }
+                overlay.style.left = `${startX}px`;
+                overlay.style.width = `${width}px`;
+                updateInfo();
+            }
+
+            editorModal.style.display = 'flex';
+        }
+
+        const getSelectionRange = () => {
+            if (selectionStart != null && selectionEnd != null && selectionEnd > selectionStart) {
+                return { start: selectionStart, end: selectionEnd };
+            }
+            return null;
+        };
+
+        trimApplyButton.addEventListener('click', async () => {
+            if (currentEditIndex < 0 || !waveSurfer) return;
+            const range = getSelectionRange();
+            if (!range) {
+                showMessage('No region selected.', 'error');
+                return;
+            }
+            const r = range;
+            const sample = recordedSamples[currentEditIndex];
+            sample.trim = { start: r.start, end: r.end };
+
+            // Rebuild the Tone.Player buffer from trimmed region for preview responsiveness
+            try {
+                const audioCtx = Tone.getContext().rawContext;
+                const originalBuffer = await audioCtx.decodeAudioData(sample.arrayBuffer.slice(0));
+                const sr = originalBuffer.sampleRate;
+                const startFrame = Math.max(0, Math.floor(r.start * sr));
+                const endFrame = Math.min(originalBuffer.length, Math.floor(r.end * sr));
+                const length = Math.max(1, endFrame - startFrame);
+                const channels = originalBuffer.numberOfChannels;
+                const trimmed = audioCtx.createBuffer(channels, length, sr);
+                for (let ch = 0; ch < channels; ch++) {
+                    const data = originalBuffer.getChannelData(ch).subarray(startFrame, endFrame);
+                    trimmed.getChannelData(ch).set(data);
+                }
+                // Replace the player's buffer so preview uses trimmed content
+                const newPlayer = new Tone.Player(trimmed).toDestination();
+                sample.player.dispose();
+                sample.player = newPlayer;
+            } catch (e) {
+                console.warn('Could not rebuild buffer:', e);
+            }
+            // Update any assigned track players that use this sample source
+            for (let t = 0; t < trackPlayers.length; t++) {
+                const tp = trackPlayers[t];
+                if (tp && tp._sourceIndex === currentEditIndex) {
+                    tp._trim = { start: r.start, end: r.end };
+                }
+            }
+            updateSampleList();
+            showMessage('Trim applied.', 'success', 1200);
+            closeEditor();
+        });
+
+        trimResetButton.addEventListener('click', () => {
+            if (currentEditIndex < 0) return;
+            const sample = recordedSamples[currentEditIndex];
+            sample.trim = null;
+            // No need to rebuild buffer; we still have original arrayBuffer
+            // Update any assigned track players that use this sample source
+            for (let t = 0; t < trackPlayers.length; t++) {
+                const tp = trackPlayers[t];
+                if (tp && tp._sourceIndex === currentEditIndex) {
+                    tp._trim = null;
+                }
+            }
+            updateSampleList();
+            showMessage('Trim reset.', 'success', 1200);
+            closeEditor();
+        });
+
+        // Zoom controls
+        const zoomInButton = document.getElementById('zoomInButton');
+        const zoomOutButton = document.getElementById('zoomOutButton');
+        let currentZoom = 0; // 0 = fit
+        function applyZoom(delta) {
+            if (!waveSurfer) return;
+            currentZoom = Math.max(0, Math.min(200, currentZoom + delta));
+            const pxPerSec = currentZoom === 0 ? 0 : currentZoom; // 0 means auto
+            waveSurfer.zoom(pxPerSec);
+        }
+        zoomInButton.addEventListener('click', () => applyZoom(20));
+        zoomOutButton.addEventListener('click', () => applyZoom(-20));
+
+        playSequencerButton.addEventListener('click', async () => {
+            if (Tone.context.state !== 'running') {
+                try {
+                    await Tone.start();
+                    const startAudioBtn = document.getElementById('startAudioContextButton');
+                    if (startAudioBtn && startAudioBtn.parentNode) {
+                        document.body.removeChild(startAudioBtn);
+                    }
+                } catch (e) {
+                    showMessage("Audio system offline. Click 'ENABLE AUDIO CORE' first.", "error", 4000);
+                    const startAudioBtn = document.getElementById('startAudioContextButton');
+                    if (startAudioBtn) {
+                        startAudioBtn.style.transform = 'scale(1.1)';
+                        startAudioBtn.style.boxShadow = '0 0 25px var(--color-primary-neon)';
+                        setTimeout(() => {
+                            startAudioBtn.style.transform = '';
+                            startAudioBtn.style.boxShadow = '';
+                        }, 500);
+                    }
+                    return;
+                }
+            }
+            // Validate there is something to play
+            const hasPlayable = trackPlayers.some((p, idx) => p && (p.loaded || p.buffer) && sequencerData[idx].some(Boolean));
+            if (!hasPlayable) {
+                showMessage('No assigned samples with active steps.', 'error', 2500);
+                return;
+            }
+            if (Tone.Transport.state === "started") return;
+
+            setupSequencerPlayback(); // Re-setup sequence with current data & tempo
+            sequence.start(0); // Place the sequence on the timeline first
+            Tone.Transport.start("+0.1"); // Then start transport slightly in future for sync
+
+            playSequencerButton.disabled = true;
+            stopSequencerButton.disabled = false;
+            console.log("Sequencer playing");
+        });
+
+        stopSequencerButton.addEventListener('click', () => {
+            Tone.Transport.stop();
+            if (sequence) { // Sequence stops when transport stops, but good practice to explicitly stop
+                sequence.stop();
+            }
+            updateStepHighlight(-1); // Clear playing highlights
+            playSequencerButton.disabled = false;
+            stopSequencerButton.disabled = true;
+            console.log("Sequencer stopped");
+        });
+
+        tempoInput.addEventListener('change', () => {
+            const newTempo = parseInt(tempoInput.value);
+            if (newTempo >= 40 && newTempo <= 240) {
+                if (Tone.Transport) {
+                    Tone.Transport.bpm.value = newTempo;
+                    console.log("Tempo changed to:", newTempo);
+                    // If playing, the new tempo will take effect.
+                    // If stopped and then started, setupSequencerPlayback will use the new tempo.
+                }
+            } else {
+                showMessage("Tempo out of range (40-240 BPM).", "error");
+                tempoInput.value = Tone.Transport.bpm.value; // Revert to current tempo
+            }
+        });
+
+        // --- EXPORT STEMS ---
+        const exportStemsButton = document.getElementById('exportStemsButton');
+        const exportDownloadLink = document.getElementById('exportDownloadLink');
+        exportStemsButton.addEventListener('click', async () => {
+            if (sequencerData.every(track => track.every(step => !step))) {
+                showMessage('No active steps to export.', 'error');
+                return;
+            }
+            try {
+                exportStemsButton.disabled = true;
+                const originalLabel = exportStemsButton.textContent;
+                exportStemsButton.textContent = 'EXPORTING...';
+                showMessage('Rendering stems...', 'info', 3000);
+                // Determine pattern length in seconds
+                const bpm = parseInt(tempoInput.value) || 120;
+                const secondsPerBeat = 60 / bpm;
+                const secondsPerStep = secondsPerBeat / 4; // 16n
+                const totalDuration = NUM_STEPS * secondsPerStep + 0.2; // small tail
+
+                // Render each track as an offline buffer then add to zip as WAV
+                const zip = new JSZip();
+                for (let track = 0; track < NUM_TRACKS; track++) {
+                    const hasAny = sequencerData[track].some(Boolean) && trackPlayers[track];
+                    if (!hasAny) continue;
+
+                    const channels = 2;
+                    const sampleRate = 44100;
+                    const offlineCtx = new OfflineAudioContext(channels, Math.ceil(totalDuration * sampleRate), sampleRate);
+                    const master = offlineCtx.createGain();
+                    master.connect(offlineCtx.destination);
+
+                    // For each active step, schedule a buffer source
+                    const p = trackPlayers[track];
+                    const sourceIndex = typeof p._sourceIndex === 'number' ? p._sourceIndex : -1;
+                    let nativeAudioBuffer = null;
+                    let trim = null;
+                    try {
+                        if (sourceIndex >= 0 && recordedSamples[sourceIndex]) {
+                            const sample = recordedSamples[sourceIndex];
+                            const arrBuf = sample.arrayBuffer || await (await fetch(sample.url)).arrayBuffer();
+                            nativeAudioBuffer = await decodeWithContext(offlineCtx, arrBuf);
+                            trim = sample.trim || null;
+                        } else {
+                            // Fallback: try to extract from Tone's internal buffer
+                            const possible = p.buffer && (p.buffer._buffer || null);
+                            if (possible) nativeAudioBuffer = possible;
+                            trim = p._trim || null;
+                        }
+                    } catch (e) {
+                        console.warn('Decode failed for track', track + 1, e);
+                        continue;
+                    }
+                    if (!nativeAudioBuffer) continue;
+                    const srcDuration = trim ? (trim.end - trim.start) : nativeAudioBuffer.duration;
+                    for (let step = 0; step < NUM_STEPS; step++) {
+                        if (!sequencerData[track][step]) continue;
+                        const when = step * secondsPerStep;
+                        const source = offlineCtx.createBufferSource();
+                        source.buffer = nativeAudioBuffer;
+                        source.connect(master);
+                        if (trim) {
+                            source.start(when, trim.start, Math.min(srcDuration, totalDuration - when));
+                        } else {
+                            source.start(when);
+                        }
+                    }
+
+                    const rendered = await offlineCtx.startRendering();
+                    const wavBlob = bufferToWavBlob(rendered);
+                    const arrayBuf = await wavBlob.arrayBuffer();
+                    zip.file(`channel_${String(track + 1).padStart(2, '0')}.wav`, arrayBuf);
+                }
+                const zipBlob = await zip.generateAsync({ type: 'blob' });
+                const zipUrl = URL.createObjectURL(zipBlob);
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                downloadFile(zipUrl, `alien_beat_matrix_stems_${timestamp}.zip`);
+                showMessage('Stems exported as ZIP.', 'success', 4000);
+                exportStemsButton.textContent = originalLabel;
+                exportStemsButton.disabled = false;
+            } catch (e) {
+                console.error('Export failed', e);
+                showMessage(`Export failed: ${e.message}`, 'error', 5000);
+                exportStemsButton.disabled = false;
+            }
+        });
+
+        async function decodeWithContext(ctx, arrayBuffer) {
+            // Safari may not support promise form reliably; wrap for safety
+            return await new Promise((resolve, reject) => {
+                try {
+                    const ret = ctx.decodeAudioData(arrayBuffer.slice(0), resolve, reject);
+                    if (ret && typeof ret.then === 'function') {
+                        ret.then(resolve).catch(reject);
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        }
+
+        function downloadFile(url, filename) {
+            exportDownloadLink.href = url;
+            exportDownloadLink.download = filename;
+            exportDownloadLink.click();
+        }
+
+        function bufferToWavBlob(audioBuffer) {
+            const numOfChan = audioBuffer.numberOfChannels;
+            const length = audioBuffer.length * numOfChan * 2 + 44;
+            const buffer = new ArrayBuffer(length);
+            const view = new DataView(buffer);
+            const channels = [];
+            let offset = 0;
+            let pos = 0;
+
+            // write WAV header
+            setUint32(0x46464952); // "RIFF"
+            setUint32(length - 8); // file length - 8
+            setUint32(0x45564157); // "WAVE"
+
+            setUint32(0x20746d66); // "fmt " chunk
+            setUint32(16); // length = 16
+            setUint16(1); // PCM (uncompressed)
+            setUint16(numOfChan);
+            setUint32(audioBuffer.sampleRate);
+            setUint32(audioBuffer.sampleRate * numOfChan * 2); // avg. bytes/sec
+            setUint16(numOfChan * 2); // block-align
+            setUint16(16); // 16-bit
+
+            setUint32(0x61746164); // "data" - chunk
+            setUint32(length - pos - 4); // chunk length
+
+            // write interleaved data
+            for (let i = 0; i < numOfChan; i++) channels.push(audioBuffer.getChannelData(i));
+            while (pos < length) {
+                const sample = Math.max(-1, Math.min(1, channels[0][offset] || 0));
+                // interleave channels (duplicate mono to stereo if needed)
+                for (let ch = 0; ch < numOfChan; ch++) {
+                    const s = Math.max(-1, Math.min(1, (channels[ch] && channels[ch][offset]) || sample));
+                    view.setInt16(pos, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                    pos += 2;
+                }
+                offset++;
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+        }
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            createSequencerGrid();
+            updateSampleList(); // Initial call to show "No samples" message
+
+            const startAudioButton = document.createElement('button');
+            startAudioButton.id = 'startAudioContextButton';
+            startAudioButton.textContent = 'ENABLE AUDIO CORE';
+            // Adjusted class for better initial visibility and styling
+            startAudioButton.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 py-4 px-8 rounded-md text-lg z-50';
+
+            if (Tone.context.state !== 'running') {
+                document.body.appendChild(startAudioButton);
+                startAudioButton.onclick = async () => {
+                    try {
+                        await Tone.start();
+                        console.log("AudioContext started by user interaction via 'ENABLE AUDIO CORE' button.");
+                        showMessage("AUDIO CORE ONLINE. SYSTEM READY.", "success", 2000);
+                        if (startAudioButton.parentNode) {
+                            document.body.removeChild(startAudioButton);
+                        }
+                    } catch (err) {
+                        console.error("Error starting Tone.js audio context:", err);
+                        showMessage("AUDIO CORE FAILURE. Refresh page or check browser permissions.", "error", 5000);
+                    }
+                };
+            } else {
+                console.log("AudioContext already running on page load.");
+                // Potentially disable record button initially until mic is explicitly checked/enabled?
+                // startRecordButton.disabled = true; // Example: force init via click
+                // recordingStatus.textContent = "Click 'Initiate Capture' to enable mic.";
+            }
+            // Ensure stop buttons are initially disabled correctly
+            stopRecordButton.disabled = true;
+            stopSequencerButton.disabled = true;
+
+            // Hook device selection
+            if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+                navigator.mediaDevices.addEventListener && navigator.mediaDevices.addEventListener('devicechange', listInputDevices);
+                refreshDevicesButton.addEventListener('click', listInputDevices);
+                micSelect.addEventListener('change', async (e) => {
+                    selectedDeviceId = e.target.value;
+                    // Recreate native recorder with the new device if using native path
+                    if (useNativeRecorder) {
+                        await setupNativeRecorder();
+                    }
+                });
+            } else {
+                permissionStatus.textContent = 'Media devices API unavailable in this browser.';
+            }
+        };
+    </script>
+</body>
+</html>
