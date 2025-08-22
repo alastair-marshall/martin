@@ -1295,19 +1295,20 @@
             // Create fresh canvas for WaveSurfer below overlay/markers
             const waveTarget = document.createElement('div');
             waveTarget.id = 'waveformCanvas';
+            waveTarget.style.width = '100%';
             wfContainer.insertBefore(waveTarget, overlay);
 
             try {
-                waveSurfer = WaveSurfer.create({
+                const wsOptions = {
                     container: waveTarget,
-                    audioContext: Tone.getContext().rawContext,
                     waveColor: 'rgba(0,255,204,0.35)',
                     progressColor: 'rgba(148,0,211,0.7)',
                     cursorColor: '#00ffcc',
                     barWidth: 1,
                     height: 120,
-                    interact: true
-                });
+                    audioContext: Tone.getContext().rawContext
+                };
+                waveSurfer = WaveSurfer.create(wsOptions);
             } catch (e) {
                 console.error('WaveSurfer create failed', e);
                 showMessage('Waveform engine failed to load. Check network and refresh.', 'error', 5000);
@@ -1315,19 +1316,26 @@
             }
 
             try {
-                const ac = Tone.getContext().rawContext;
-                const bufArray = sample.arrayBuffer || await (await fetch(sample.url)).arrayBuffer();
-                const decoded = await decodeWithContext(ac, bufArray);
-                waveSurfer.loadDecodedBuffer(decoded);
-            } catch (e) {
-                // Fallback to URL load if decode path fails
-                const blob = sample.arrayBuffer ? new Blob([sample.arrayBuffer], { type: sample.mimeType || 'audio/wav' }) : null;
-                if (blob) {
+                // Prefer loadBlob when available (WaveSurfer v7)
+                let blob = null;
+                if (sample.arrayBuffer) {
+                    blob = new Blob([sample.arrayBuffer], { type: sample.mimeType || 'audio/wav' });
+                }
+                if (!blob) {
+                    // Fetch and build blob if needed
+                    const resp = await fetch(sample.url);
+                    const buf = await resp.arrayBuffer();
+                    blob = new Blob([buf], { type: sample.mimeType || resp.headers.get('content-type') || 'audio/wav' });
+                }
+                if (typeof waveSurfer.loadBlob === 'function') {
+                    await waveSurfer.loadBlob(blob);
+                } else {
                     const url = URL.createObjectURL(blob);
                     waveSurfer.load(url);
-                } else {
-                    waveSurfer.load(sample.url);
                 }
+            } catch (e) {
+                console.warn('WaveSurfer loadBlob failed, falling back to URL', e);
+                waveSurfer.load(sample.url);
             }
 
             const resyncOverlay = () => {
@@ -1346,12 +1354,20 @@
                 // Keep overlay in sync when container scrolls or window resizes
                 wfContainer.addEventListener('scroll', resyncOverlay, { passive: true });
                 window.addEventListener('resize', resyncOverlay);
+                // Ensure a draw after modal becomes visible
+                setTimeout(() => {
+                    try { waveSurfer.zoom(0); } catch (_) { }
+                    resyncOverlay();
+                }, 0);
             });
 
             waveSurfer.on('error', (e) => {
                 console.error('WaveSurfer error:', e);
                 showMessage('Error rendering waveform. Try reloading.', 'error', 4000);
             });
+            // Resync on decode/redraw events too
+            waveSurfer.on && waveSurfer.on('decode', () => { resyncOverlay(); });
+            waveSurfer.on && waveSurfer.on('redraw', () => { resyncOverlay(); });
 
             const updateInfo = () => {
                 if (selectionStart != null && selectionEnd != null && selectionEnd > selectionStart) {
