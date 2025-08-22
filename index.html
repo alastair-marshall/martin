@@ -1146,13 +1146,14 @@
             }
         });
 
-        function selectSampleForTrack(sample, sampleIndex) {
+        async function selectSampleForTrack(sample, sampleIndex) {
             if (currentTrackToLoad !== -1 && sample.player) {
                 // Ensure the player's buffer is loaded before assigning
-                const assignBufferToTrack = () => {
+                const assignBufferToTrack = (decodedBuffer) => {
                     try {
                         // Create a dedicated Player per track to allow overlapping/reuse
-                        const newPlayer = new Tone.Player(sample.player.buffer).toDestination();
+                        const bufferSource = decodedBuffer || (sample.player && sample.player.buffer);
+                        const newPlayer = new Tone.Player(bufferSource).toDestination();
                         // Apply trim by setting .loopStart/.loopEnd and reading a subrange on start
                         if (sample.trim && sample.trim.end > sample.trim.start) {
                             newPlayer.loop = false;
@@ -1175,20 +1176,25 @@
                     }
                 };
 
-                if (sample.player.loaded) {
-                    assignBufferToTrack();
-                } else {
-                    // Attempt to load if not yet loaded
-                    showMessage(`Loading ${sample.name}...`, "info", 2000);
-                    sample.player.load(sample.url).then(() => {
+                try {
+                    // Prefer decoding from stored ArrayBuffer for reliability
+                    if (sample.arrayBuffer) {
+                        const ac = Tone.getContext().rawContext;
+                        const decoded = await decodeWithContext(ac, sample.arrayBuffer);
+                        assignBufferToTrack(decoded);
+                    } else if (sample.player && (sample.player.loaded || sample.player.buffer)) {
+                        assignBufferToTrack(null);
+                    } else {
+                        showMessage(`Loading ${sample.name}...`, "info", 2000);
+                        await sample.player.load(sample.url);
                         if (sample.player.loaded) {
-                            assignBufferToTrack();
+                            assignBufferToTrack(null);
                         } else {
                             showMessage(`Error: Sample "${sample.name}" could not be loaded. Try re-recording.`, "error", 5000);
                         }
-                    }).catch(err => {
-                        showMessage(`Error loading sample "${sample.name}": ${err.message}`, "error", 5000);
-                    });
+                    }
+                } catch (err) {
+                    showMessage(`Error preparing sample "${sample.name}": ${err.message}`, "error", 5000);
                 }
             } else {
                 showMessage(`Error assigning sample. Player or track invalid.`, "error", 5000);
@@ -1206,7 +1212,7 @@
             sequence = new Tone.Sequence((time, step) => {
                 for (let track = 0; track < NUM_TRACKS; track++) {
                     const p = trackPlayers[track];
-                    const isPlayerReady = p && (p.loaded || p.buffer);
+                    const isPlayerReady = p && (p.buffer || p.loaded);
                     if (sequencerData[track][step] && isPlayerReady) {
                         if (p._trim && p._trim.end > p._trim.start) {
                             p.start(time, p._trim.start, p._trim.end - p._trim.start);
@@ -1309,6 +1315,7 @@
                     cursorColor: '#00ffcc',
                     barWidth: 1,
                     height: 120,
+                    normalize: true,
                     audioContext: Tone.getContext().rawContext
                 };
                 waveSurfer = WaveSurfer.create(wsOptions);
@@ -1597,7 +1604,7 @@
                 return;
             }
             // Validate there is something to play
-            const hasPlayable = trackPlayers.some((p, idx) => p && (p.loaded || p.buffer) && sequencerData[idx].some(Boolean));
+            const hasPlayable = trackPlayers.some((p, idx) => p && (p.buffer || p.loaded) && sequencerData[idx].some(Boolean));
             if (!hasPlayable) {
                 showMessage('No assigned samples with active steps.', 'error', 2500);
                 return;
