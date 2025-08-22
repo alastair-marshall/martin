@@ -1212,10 +1212,20 @@
             sequence = new Tone.Sequence((time, step) => {
                 for (let track = 0; track < NUM_TRACKS; track++) {
                     const p = trackPlayers[track];
-                    const isPlayerReady = p && (p.buffer || p.loaded);
+                    const isPlayerReady = p && (
+                        (p.buffer && (p.buffer._buffer || p.buffer.loaded)) ||
+                        p.loaded
+                    );
                     if (sequencerData[track][step] && isPlayerReady) {
-                        if (p._trim && p._trim.end > p._trim.start) {
-                            p.start(time, p._trim.start, p._trim.end - p._trim.start);
+                        if (p._trim) {
+                            const trimStart = typeof p._trim.start === 'number' ? p._trim.start : 0;
+                            const trimEnd = typeof p._trim.end === 'number' ? p._trim.end : trimStart;
+                            const dur = Math.max(0, trimEnd - trimStart);
+                            if (dur > 0.0005) {
+                                p.start(time, trimStart, dur);
+                            } else {
+                                p.start(time);
+                            }
                         } else {
                             p.start(time);
                         }
@@ -1516,7 +1526,12 @@
             }
             const r = range;
             const sample = recordedSamples[currentEditIndex];
-            sample.trim = { start: r.start, end: r.end };
+            // Only store trim if it meaningfully cuts the clip
+            if (r.end - r.start > 0.0005) {
+                sample.trim = { start: r.start, end: r.end };
+            } else {
+                sample.trim = null;
+            }
 
             // Rebuild the Tone.Player buffer from trimmed region for preview responsiveness
             try {
@@ -1543,7 +1558,7 @@
             for (let t = 0; t < trackPlayers.length; t++) {
                 const tp = trackPlayers[t];
                 if (tp && tp._sourceIndex === currentEditIndex) {
-                    tp._trim = { start: r.start, end: r.end };
+                    tp._trim = sample.trim ? { start: sample.trim.start, end: sample.trim.end } : null;
                 }
             }
             updateSampleList();
@@ -1604,7 +1619,9 @@
                 return;
             }
             // Validate there is something to play
-            const hasPlayable = trackPlayers.some((p, idx) => p && (p.buffer || p.loaded) && sequencerData[idx].some(Boolean));
+            const hasPlayable = trackPlayers.some((p, idx) => p && (
+                (p.buffer && (p.buffer._buffer || p.buffer.loaded)) || p.loaded
+            ) && sequencerData[idx].some(Boolean));
             if (!hasPlayable) {
                 showMessage('No assigned samples with active steps.', 'error', 2500);
                 return;
