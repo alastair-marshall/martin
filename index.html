@@ -465,6 +465,62 @@
             justify-content: center;
             /* For aligning loader and text */
         }
+
+        /* Mobile/touch improvements */
+        body {
+            -webkit-tap-highlight-color: transparent;
+            overscroll-behavior: none;
+        }
+
+        .sequencer-step,
+        button,
+        input,
+        select {
+            touch-action: manipulation;
+        }
+
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            h2 {
+                font-size: 1.125rem;
+            }
+
+            #controls .grid {
+                gap: 0.75rem;
+            }
+
+            .sequencer-step {
+                width: 32px;
+                height: 32px;
+                margin: 1px;
+            }
+
+            .track-header {
+                min-width: 120px;
+            }
+
+            #sampleList {
+                max-height: 12rem;
+            }
+
+            #sampleModal .modal-content,
+            #editorModal .modal-content {
+                width: 95%;
+                max-width: 480px;
+            }
+
+            #waveformContainer {
+                height: 96px;
+            }
+
+            #startAudioContextButton {
+                padding: 0.75rem 1.25rem;
+                font-size: 1rem;
+            }
+        }
     </style>
 </head>
 
@@ -621,6 +677,51 @@
         const closeModalButton = document.getElementById('closeModalButton');
         const modalSampleList = document.getElementById('modalSampleList');
         const modalNoSamples = document.getElementById('modalNoSamples');
+
+        // --- MOBILE AUDIO UNLOCK & CONTEXT HELPERS ---
+        let audioUnlocked = false;
+        async function ensureAudioRunning() {
+            try { await Tone.start(); } catch (_) { }
+            const ctx = Tone.getContext().rawContext;
+            if (ctx && ctx.state !== 'running') {
+                try { await ctx.resume(); } catch (_) { }
+            }
+            // one-shot silent buffer to poke iOS
+            try {
+                const ac = Tone.getContext().rawContext;
+                const silent = ac.createBuffer(1, 1, ac.sampleRate);
+                const src = ac.createBufferSource();
+                src.buffer = silent;
+                src.connect(ac.destination);
+                src.start(0);
+            } catch (_) { }
+            return Tone.context.state === 'running' && Tone.getContext().rawContext.state === 'running';
+        }
+
+        function attachMobileAudioUnlock() {
+            const tryUnlock = async () => {
+                if (audioUnlocked) return;
+                const ok = await ensureAudioRunning();
+                if (ok) {
+                    audioUnlocked = true;
+                    window.removeEventListener('pointerdown', tryUnlock);
+                    window.removeEventListener('touchstart', tryUnlock);
+                    window.removeEventListener('click', tryUnlock);
+                    window.removeEventListener('keydown', tryUnlock);
+                }
+            };
+            window.addEventListener('pointerdown', tryUnlock, { once: false, passive: true });
+            window.addEventListener('touchstart', tryUnlock, { once: false, passive: true });
+            window.addEventListener('click', tryUnlock, { once: false });
+            window.addEventListener('keydown', tryUnlock, { once: false });
+            document.addEventListener('visibilitychange', async () => {
+                if (document.visibilityState === 'visible') {
+                    await ensureAudioRunning();
+                }
+            });
+            window.addEventListener('pageshow', async () => { await ensureAudioRunning(); });
+        }
+        attachMobileAudioUnlock();
 
         // --- AUDIO CONTEXT & TONE.JS SETUP ---
         let mic = null; // Initialize mic as null
@@ -783,6 +884,7 @@
         // --- RECORDING ---
         startRecordButton.addEventListener('click', async () => {
             try {
+                await ensureAudioRunning();
                 // We allow recording even if Tone isn't started yet
                 if (((!mic || !mic.isOpen) && !useNativeRecorder) || !recorder) {
                     showMessage("Initializing audio capture... please allow microphone access if prompted.", "info", 3500);
@@ -1171,6 +1273,7 @@
             try {
                 waveSurfer = WaveSurfer.create({
                     container: waveTarget,
+                    audioContext: Tone.getContext().rawContext,
                     waveColor: 'rgba(0,255,204,0.35)',
                     progressColor: 'rgba(148,0,211,0.7)',
                     cursorColor: '#00ffcc',
@@ -1426,26 +1529,19 @@
         zoomOutButton.addEventListener('click', () => applyZoom(-20));
 
         playSequencerButton.addEventListener('click', async () => {
-            if (Tone.context.state !== 'running') {
-                try {
-                    await Tone.start();
-                    const startAudioBtn = document.getElementById('startAudioContextButton');
-                    if (startAudioBtn && startAudioBtn.parentNode) {
-                        document.body.removeChild(startAudioBtn);
-                    }
-                } catch (e) {
-                    showMessage("Audio system offline. Click 'ENABLE AUDIO CORE' first.", "error", 4000);
-                    const startAudioBtn = document.getElementById('startAudioContextButton');
-                    if (startAudioBtn) {
-                        startAudioBtn.style.transform = 'scale(1.1)';
-                        startAudioBtn.style.boxShadow = '0 0 25px var(--color-primary-neon)';
-                        setTimeout(() => {
-                            startAudioBtn.style.transform = '';
-                            startAudioBtn.style.boxShadow = '';
-                        }, 500);
-                    }
-                    return;
+            const ok = await ensureAudioRunning();
+            if (!ok) {
+                showMessage("Audio system offline. Click 'ENABLE AUDIO CORE' first.", "error", 4000);
+                const startAudioBtn = document.getElementById('startAudioContextButton');
+                if (startAudioBtn) {
+                    startAudioBtn.style.transform = 'scale(1.1)';
+                    startAudioBtn.style.boxShadow = '0 0 25px var(--color-primary-neon)';
+                    setTimeout(() => {
+                        startAudioBtn.style.transform = '';
+                        startAudioBtn.style.boxShadow = '';
+                    }, 500);
                 }
+                return;
             }
             // Validate there is something to play
             const hasPlayable = trackPlayers.some((p, idx) => p && (p.loaded || p.buffer) && sequencerData[idx].some(Boolean));
