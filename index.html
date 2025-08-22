@@ -753,6 +753,7 @@
         let nativeChunks = [];
         let nativeMimeType = '';
         let selectedDeviceId = '';
+        let isMicOpen = false;
 
         async function setupNativeRecorder() {
             if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -864,16 +865,17 @@
                 }
 
                 // Fallback to Tone.UserMedia + Tone.Recorder
-                if (mic && typeof mic.close === 'function') {
-                    mic.close();
-                }
+                if (mic && typeof mic.close === 'function') { try { mic.close(); } catch (_) { } }
+                isMicOpen = false;
                 mic = new Tone.UserMedia();
                 const toneConstraints = selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : undefined;
                 try {
                     await mic.open(toneConstraints);
+                    isMicOpen = true;
                 } catch (e) {
                     // Retry with no constraints if device-specific open fails (Safari/iOS quirk)
                     await mic.open();
+                    isMicOpen = true;
                 }
                 const toneRecorder = new Tone.Recorder();
                 mic.connect(toneRecorder);
@@ -898,8 +900,9 @@
                 recordingStatus.textContent = 'Mic access failed.';
                 startRecordButton.disabled = true;
                 startRecordButton.title = 'Microphone unavailable';
-                if (mic && typeof mic.close === 'function') mic.close();
+                if (mic && typeof mic.close === 'function') { try { mic.close(); } catch (_) { } }
                 mic = null;
+                isMicOpen = false;
                 return false;
             }
         }
@@ -909,7 +912,7 @@
             try {
                 await ensureAudioRunning();
                 // We allow recording even if Tone isn't started yet
-                if (((!mic || !mic.isOpen) && !useNativeRecorder) || !recorder) {
+                if (((!isMicOpen) && !useNativeRecorder) || !recorder) {
                     showMessage("Initializing audio capture... please allow microphone access if prompted.", "info", 3500);
                     recordingStatus.innerHTML = '<div class="loader"></div> Initializing Mic...';
                     const micReady = await initAudio();
@@ -921,7 +924,7 @@
                     }
                 }
 
-                if ((!mic || !mic.isOpen) && !useNativeRecorder) { // Neither Tone mic nor native available
+                if ((!isMicOpen) && !useNativeRecorder) { // Neither Tone mic nor native available
                     console.error("Critical error: No recording source available.");
                     showMessage("Unexpected error: No recording source available.", "error", 5000);
                     recordingStatus.textContent = "Mic setup error.";
@@ -1910,19 +1913,19 @@
                         await setupNativeRecorder();
                     } else if (mic) {
                         try {
-                            if (typeof mic.close === 'function' && mic.isOpen) {
-                                await mic.close();
-                            }
+                            if (typeof mic.close === 'function') { await mic.close(); }
+                            isMicOpen = false;
                         } catch (_) { }
                         try {
                             const toneConstraints = selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : undefined;
                             await mic.open(toneConstraints);
+                            isMicOpen = true;
                             if (recorder && typeof recorder.addInput === 'function') {
                                 // no-op; Tone.Recorder in this code uses connect()
                             }
                         } catch (err) {
                             showMessage('Failed to switch input device. Reverting to default.', 'error', 3000);
-                            try { await mic.open(); } catch (_) { }
+                            try { await mic.open(); isMicOpen = true; } catch (_) { }
                         }
                     }
                 });
