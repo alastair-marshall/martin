@@ -606,6 +606,8 @@
                 <div class="mt-4 flex gap-2">
                     <button id="exportStemsButton" class="py-2 px-3 text-xs"
                         title="Export active pattern as individual stems">EXPORT STEMS</button>
+                    <button id="exportMixButton" class="py-2 px-3 text-xs" title="Export full mix as WAV">EXPORT
+                        MIX</button>
                     <a id="exportDownloadLink" class="hidden"></a>
                 </div>
             </section>
@@ -680,6 +682,11 @@
 
         // --- MOBILE AUDIO UNLOCK & CONTEXT HELPERS ---
         let audioUnlocked = false;
+        // Safari / iOS detection (treat iOS Chrome as Safari due to WebKit)
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isWebKit = /AppleWebKit\//.test(ua) && !/Edge|Edg|OPR|Opera|Chromium/.test(ua);
+        const isSafariLike = isWebKit && (/Safari\//.test(ua) || isIOS);
         async function ensureAudioRunning() {
             try { await Tone.start(); } catch (_) { }
             const ctx = Tone.getContext().rawContext;
@@ -705,13 +712,19 @@
                 if (ok) {
                     audioUnlocked = true;
                     window.removeEventListener('pointerdown', tryUnlock);
+                    window.removeEventListener('pointerup', tryUnlock);
+                    window.removeEventListener('mousedown', tryUnlock);
                     window.removeEventListener('touchstart', tryUnlock);
+                    window.removeEventListener('touchend', tryUnlock);
                     window.removeEventListener('click', tryUnlock);
                     window.removeEventListener('keydown', tryUnlock);
                 }
             };
             window.addEventListener('pointerdown', tryUnlock, { once: false, passive: true });
+            window.addEventListener('pointerup', tryUnlock, { once: false, passive: true });
+            window.addEventListener('mousedown', tryUnlock, { once: false });
             window.addEventListener('touchstart', tryUnlock, { once: false, passive: true });
+            window.addEventListener('touchend', tryUnlock, { once: false, passive: true });
             window.addEventListener('click', tryUnlock, { once: false });
             window.addEventListener('keydown', tryUnlock, { once: false });
             document.addEventListener('visibilitychange', async () => {
@@ -746,6 +759,10 @@
                 return false;
             }
             try {
+                // Prefer non-native path on Safari/iOS due to MediaRecorder quirks
+                if (isSafariLike) {
+                    return false;
+                }
                 const constraints = {
                     audio: {
                         echoCancellation: false,
@@ -851,7 +868,13 @@
                     mic.close();
                 }
                 mic = new Tone.UserMedia();
-                await mic.open();
+                const toneConstraints = selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : undefined;
+                try {
+                    await mic.open(toneConstraints);
+                } catch (e) {
+                    // Retry with no constraints if device-specific open fails (Safari/iOS quirk)
+                    await mic.open();
+                }
                 const toneRecorder = new Tone.Recorder();
                 mic.connect(toneRecorder);
                 recorder = toneRecorder;
@@ -948,7 +971,7 @@
                 // player.toDestination(); // Already chained
                 // Cache ArrayBuffer for trimming/waveform
                 const arrayBuffer = await recordingBlob.arrayBuffer();
-                recordedSamples.push({ name: sampleName, url: sampleUrl, player: player, arrayBuffer, trim: null });
+                recordedSamples.push({ name: sampleName, url: sampleUrl, mimeType: recordingBlob.type || '', player: player, arrayBuffer, trim: null });
                 updateSampleList();
                 recordingStatus.textContent = `Sample "${sampleName}" acquired.`;
                 console.log("Recording stopped. Sample saved:", sampleName);
@@ -1233,7 +1256,8 @@
             if (event.target === editorModal) closeEditor();
         });
 
-        function openEditor(sample, index) {
+        async function openEditor(sample, index) {
+            await ensureAudioRunning();
             currentEditIndex = index;
             editorSampleName.textContent = sample.name;
             const wfContainer = document.getElementById('waveformContainer');
@@ -1261,6 +1285,9 @@
                 wfContainer.appendChild(endMarkerEl);
             }
 
+            // Ensure modal visible BEFORE creating WaveSurfer (Safari sizing quirk)
+            editorModal.style.display = 'flex';
+
             // Remove any prior waveform canvas
             const existingWave = document.getElementById('waveformCanvas');
             if (existingWave && existingWave.parentNode) existingWave.parentNode.removeChild(existingWave);
@@ -1287,12 +1314,20 @@
                 return;
             }
 
-            const blob = sample.arrayBuffer ? new Blob([sample.arrayBuffer]) : null;
-            if (blob) {
-                const url = URL.createObjectURL(blob);
-                waveSurfer.load(url);
-            } else {
-                waveSurfer.load(sample.url);
+            try {
+                const ac = Tone.getContext().rawContext;
+                const bufArray = sample.arrayBuffer || await (await fetch(sample.url)).arrayBuffer();
+                const decoded = await decodeWithContext(ac, bufArray);
+                waveSurfer.loadDecodedBuffer(decoded);
+            } catch (e) {
+                // Fallback to URL load if decode path fails
+                const blob = sample.arrayBuffer ? new Blob([sample.arrayBuffer], { type: sample.mimeType || 'audio/wav' }) : null;
+                if (blob) {
+                    const url = URL.createObjectURL(blob);
+                    waveSurfer.load(url);
+                } else {
+                    waveSurfer.load(sample.url);
+                }
             }
 
             const resyncOverlay = () => {
@@ -1430,8 +1465,7 @@
 
             attachMarkerDrag(document.getElementById('startMarker'), 'start');
             attachMarkerDrag(document.getElementById('endMarker'), 'end');
-
-            editorModal.style.display = 'flex';
+            // Modal already displayed above
         }
 
         const getSelectionRange = () => {
@@ -1461,7 +1495,7 @@
             // Rebuild the Tone.Player buffer from trimmed region for preview responsiveness
             try {
                 const audioCtx = Tone.getContext().rawContext;
-                const originalBuffer = await audioCtx.decodeAudioData(sample.arrayBuffer.slice(0));
+                const originalBuffer = await decodeWithContext(audioCtx, sample.arrayBuffer);
                 const sr = originalBuffer.sampleRate;
                 const startFrame = Math.max(0, Math.floor(r.start * sr));
                 const endFrame = Math.min(originalBuffer.length, Math.floor(r.end * sr));
@@ -1498,7 +1532,7 @@
             // Rebuild player's buffer back to original for accurate preview
             try {
                 const audioCtx = Tone.getContext().rawContext;
-                const originalBuffer = await audioCtx.decodeAudioData(sample.arrayBuffer.slice(0));
+                const originalBuffer = await decodeWithContext(audioCtx, sample.arrayBuffer);
                 const newPlayer = new Tone.Player(originalBuffer).toDestination();
                 sample.player.dispose();
                 sample.player = newPlayer;
@@ -1589,6 +1623,7 @@
         // --- EXPORT STEMS ---
         const exportStemsButton = document.getElementById('exportStemsButton');
         const exportDownloadLink = document.getElementById('exportDownloadLink');
+        const exportMixButton = document.getElementById('exportMixButton');
         exportStemsButton.addEventListener('click', async () => {
             if (sequencerData.every(track => track.every(step => !step))) {
                 showMessage('No active steps to export.', 'error');
@@ -1669,6 +1704,81 @@
                 console.error('Export failed', e);
                 showMessage(`Export failed: ${e.message}`, 'error', 5000);
                 exportStemsButton.disabled = false;
+            }
+        });
+
+        // --- EXPORT FULL MIX ---
+        exportMixButton.addEventListener('click', async () => {
+            if (sequencerData.every(track => track.every(step => !step))) {
+                showMessage('No active steps to export.', 'error');
+                return;
+            }
+            try {
+                exportMixButton.disabled = true;
+                const original = exportMixButton.textContent;
+                exportMixButton.textContent = 'EXPORTING...';
+                showMessage('Rendering full mix...', 'info', 3000);
+
+                const bpm = parseInt(tempoInput.value) || 120;
+                const secondsPerBeat = 60 / bpm;
+                const secondsPerStep = secondsPerBeat / 4; // 16n
+                const totalDuration = NUM_STEPS * secondsPerStep + 0.2; // small tail
+
+                const channels = 2;
+                const sampleRate = 44100;
+                const offlineCtx = new OfflineAudioContext(channels, Math.ceil(totalDuration * sampleRate), sampleRate);
+                const master = offlineCtx.createGain();
+                master.connect(offlineCtx.destination);
+
+                for (let track = 0; track < NUM_TRACKS; track++) {
+                    if (!sequencerData[track].some(Boolean) || !trackPlayers[track]) continue;
+                    const p = trackPlayers[track];
+                    const sourceIndex = typeof p._sourceIndex === 'number' ? p._sourceIndex : -1;
+                    let nativeAudioBuffer = null;
+                    let trim = null;
+                    try {
+                        if (sourceIndex >= 0 && recordedSamples[sourceIndex]) {
+                            const sample = recordedSamples[sourceIndex];
+                            const arrBuf = sample.arrayBuffer || await (await fetch(sample.url)).arrayBuffer();
+                            nativeAudioBuffer = await decodeWithContext(offlineCtx, arrBuf);
+                            trim = sample.trim || null;
+                        } else {
+                            const possible = p.buffer && (p.buffer._buffer || null);
+                            if (possible) nativeAudioBuffer = possible;
+                            trim = p._trim || null;
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                    if (!nativeAudioBuffer) continue;
+                    const srcDuration = trim ? (trim.end - trim.start) : nativeAudioBuffer.duration;
+                    for (let step = 0; step < NUM_STEPS; step++) {
+                        if (!sequencerData[track][step]) continue;
+                        const when = step * secondsPerStep;
+                        const source = offlineCtx.createBufferSource();
+                        source.buffer = nativeAudioBuffer;
+                        source.connect(master);
+                        if (trim) {
+                            source.start(when, trim.start, Math.min(srcDuration, totalDuration - when));
+                        } else {
+                            source.start(when);
+                        }
+                    }
+                }
+
+                const rendered = await offlineCtx.startRendering();
+                const wavBlob = bufferToWavBlob(rendered);
+                const arrayBuf = await wavBlob.arrayBuffer();
+                const url = URL.createObjectURL(new Blob([arrayBuf], { type: 'audio/wav' }));
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                downloadFile(url, `alien_beat_matrix_mix_${timestamp}.wav`);
+                showMessage('Full mix exported.', 'success', 3500);
+                exportMixButton.textContent = original;
+                exportMixButton.disabled = false;
+            } catch (e) {
+                console.error('Mix export failed', e);
+                showMessage(`Mix export failed: ${e.message}`, 'error', 5000);
+                exportMixButton.disabled = false;
             }
         });
 
@@ -1782,6 +1892,22 @@
                     // Recreate native recorder with the new device if using native path
                     if (useNativeRecorder) {
                         await setupNativeRecorder();
+                    } else if (mic) {
+                        try {
+                            if (typeof mic.close === 'function' && mic.isOpen) {
+                                await mic.close();
+                            }
+                        } catch (_) { }
+                        try {
+                            const toneConstraints = selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : undefined;
+                            await mic.open(toneConstraints);
+                            if (recorder && typeof recorder.addInput === 'function') {
+                                // no-op; Tone.Recorder in this code uses connect()
+                            }
+                        } catch (err) {
+                            showMessage('Failed to switch input device. Reverting to default.', 'error', 3000);
+                            try { await mic.open(); } catch (_) { }
+                        }
                     }
                 });
             } else {
