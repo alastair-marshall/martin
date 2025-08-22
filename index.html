@@ -1027,25 +1027,38 @@
 
         async function playSamplePreview(sample) {
             try {
-                if (Tone.context.state !== 'running') {
-                    try { await Tone.start(); } catch (_) { }
-                }
-                // If a trim range exists, play only that region
-                if (sample.trim && sample.trim.end > sample.trim.start && sample.player && sample.player.loaded) {
-                    sample.player.start(undefined, sample.trim.start, sample.trim.end - sample.trim.start);
+                await ensureAudioRunning();
+                const p = sample.player;
+                if (!p) {
+                    showMessage(`Player for ${sample.name} not available.`, 'error');
                     return;
                 }
-                if (sample.player && sample.player.loaded) {
-                    sample.player.start();
-                } else if (sample.player) {
-                    showMessage(`Loading ${sample.name} for playback...`, "info", 1500);
-                    await sample.player.load(sample.url);
-                    sample.player.start();
-                } else {
-                    showMessage(`Player for ${sample.name} not available.`, "error");
+                // Prefer in-memory buffer if present
+                const hasBuffer = !!(p.buffer && (p.buffer._buffer || p.buffer.loaded || p.buffer.length));
+                const hasLoaded = !!p.loaded;
+                const playTrimmed = () => {
+                    if (sample.trim && typeof sample.trim.start === 'number' && typeof sample.trim.end === 'number') {
+                        const dur = Math.max(0, sample.trim.end - sample.trim.start);
+                        if (dur > 0.0005) {
+                            p.start(undefined, sample.trim.start, dur);
+                            return true;
+                        }
+                    }
+                    return false;
+                };
+                if (hasBuffer || hasLoaded) {
+                    if (!playTrimmed()) {
+                        p.start();
+                    }
+                    return;
+                }
+                showMessage(`Loading ${sample.name} for playback...`, 'info', 1200);
+                await p.load(sample.url);
+                if (!playTrimmed()) {
+                    p.start();
                 }
             } catch (err) {
-                showMessage(`Error playing ${sample.name}: ${err.message}`, "error");
+                showMessage(`Error playing ${sample.name}: ${err.message}`, 'error');
             }
         }
 
